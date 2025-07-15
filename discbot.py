@@ -20,10 +20,8 @@ class DiscussionsBot():
         }
 
         self.__botUsername = botUsername
-        self.__botUserID = 1234
-
-        self.__wikiID = self.__getWikiID()
-        self.__login(password)
+        self.__login(password) # там внутри устанавливается botUserID
+        self.__getMetaWiki() # а там wikiname, wikiID и wikilang
     
     def __login(self, password):
         url = 'https://services.fandom.com/mobile-fandom-app/fandom-auth/login'
@@ -68,7 +66,6 @@ class DiscussionsBot():
             response.status_code,
             self.__apiRecentChanges
         ))
-
 
         content = response.json()
         return self.__helpRecentChanges(content['query']['recentchanges'])
@@ -284,20 +281,29 @@ class DiscussionsBot():
             self.__apiSocialActivity
         ))
     
-    def getWikiID(self):
-        return self.__getWikiID
+    def getWikiName(self):
+        return self.__wikiname
     
-    def __getWikiID(self):
+    def getWikiID(self):
+        return self.__wikiID
+    
+    def getWikiLang():
+        return self.__wikilang
+    
+    def __getMetaWiki(self):
         payload = {
             'action': 'query',
             'meta': 'siteinfo',
-            'siprop': 'variables',
+            'siprop': 'general|variables',
             'format': 'json'
         }
 
         response = self.__session.get(self.__apiRecentChanges, params=payload, headers=self.__headers)
         content = response.json()
-        return content['query']['variables'][1]['*']
+
+        self.__wikiname = content['query']['general']['sitename']
+        self.__wikiID = content['query']['variables'][1]['*']
+        self.__wikilang = content['query']['variables'][0]['*']
     
     def getUserID(self, username):
         message = self.getUserContributions(username=username, limit=1)
@@ -316,7 +322,6 @@ class DiscussionsBot():
 
         response = self.__session.get(self.__apiRecentChanges, params=payload, headers=self.__headers)
         content = response.json()
-        print(content)
         return content['query']['tokens']['csrftoken']
 
     def __getDateTimeNow(self):

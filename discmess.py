@@ -75,16 +75,16 @@ class DiscussionsMessage:
     
     def addText(self, text, strong=False, italic=False, link=None):
         if self.__jsonModel['content'][-1]['type'] == 'paragraph':
-            self.__jsonModel['content'][-1]['content'].append(self.__helpText(text, strong=strong, italic=italic, link=None))
+            self.__jsonModel['content'][-1]['content'].append(self.__helpText(text, strong=strong, italic=italic, link=link))
         
         if self.__jsonModel['content'][-1]['type'] == 'code_block':
             self.__jsonModel['content'][-1]['content'].append(self.__helpText(text))
         
         if self.__jsonModel['content'][-1]['type'] == 'bulletList':
-            self.__jsonModel['content'][-1]['content'][-1]['content'][-1]['content'].append(self.__helpText(text, strong=strong, italic=italic, link=None))
+            self.__jsonModel['content'][-1]['content'][-1]['content'][-1]['content'].append(self.__helpText(text, strong=strong, italic=italic, link=link))
         
         if self.__jsonModel['content'][-1]['type'] == 'orderedList':
-            self.__jsonModel['content'][-1]['content'][-1]['content'][-1]['content'].append(self.__helpText(text, strong=strong, italic=italic, link=None))
+            self.__jsonModel['content'][-1]['content'][-1]['content'][-1]['content'].append(self.__helpText(text, strong=strong, italic=italic, link=link))
 
         return self
     
