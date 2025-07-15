@@ -24,8 +24,7 @@ class MyDiscussionsBot():
         listNewMessages = self.myBot.getSocialActivity(self.settings['lastCheck'])
 
         for post in listNewMessages:
-            # автоприветствие новых участников
-            self.autogreeting(post)
+            self.autogreeting(post) # автоприветствие новых участников
             return
         
         self.updateSettings()
@@ -125,10 +124,10 @@ class MyDiscussionsBot():
         )
 
         # теперь добавляем само название $PAGENAME вместе с ссылкой, по прежнему сохраняя форматирование
-        postAutogreeting.addText(post['thread'],
+        postAutogreeting.addText(self.myBot.getPageName(post),
             strong=isMarkStrong,
             italic=isMarkItalic,
-            link='https://discbot.fandom.com/ru/wiki/' + post['thread']
+            link=self.myBot.getPageLink(post)
         )
 
         # ну и теперь добавляем текст после $PAGENAME, также сохраняя форматирование

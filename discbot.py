@@ -8,6 +8,7 @@ from datetime import datetime, timezone
 class DiscussionsBot():
     def __init__(self, botUsername, password, wikilink):
         self.__session = requests.Session()
+        self.__wikilink = wikilink
         self.__apiRecentChanges = wikilink + '/api.php'
         self.__apiSocialActivity = wikilink + '/wikia.php'
 
@@ -215,17 +216,17 @@ class DiscussionsBot():
         
         return messages
     
-    def createThreadDiscussions(self, message):
+    def createThreadDiscussions(self, discMessage):
         pass
     
-    def createThreadMessageWalk(self, message, title, username=None, userID=None):
+    def createThreadMessageWalk(self, discMessage, title, username=None, userID=None):
         # https://discbot.fandom.com/ru/wikia.php?controller=Fandom\MessageWall\MessageWall&method=createThread&format=json
 
         if not userID:
             userID = self.getUserID(username)
 
         payload = {
-            'controller': 'Fandom\MessageWall\MessageWall',
+            'controller': 'Fandom\\MessageWall\\MessageWall',
             'method': 'createThread',
             'format': 'json'
         }
@@ -235,9 +236,9 @@ class DiscussionsBot():
             'token': self.__getToken(),
             'wallOwnerId': str(userID),
             'title': title,
-            'rawContent': message.getRawContent(),
-            'jsonModel': message.getJSONModel(),
-            'attachments': message.getAttachments()
+            'rawContent': discMessage.getRawContent(),
+            'jsonModel': discMessage.getJSONModel(),
+            'attachments': discMessage.getAttachments()
         }
 
         response = self.__session.post(self.__apiSocialActivity, params=payload, data=body, headers=self.__headers)
@@ -248,17 +249,17 @@ class DiscussionsBot():
             self.__apiSocialActivity
         ))
     
-    def createReplyDiscussions(self, message, title, username=None, userID=None):
+    def createReplyDiscussions(self, discMessage, title, username=None, userID=None):
         pass
     
-    def createReplyMessageWalk(self, message, threadID, username=None, userID=None):
+    def createReplyMessageWalk(self, discMessage, threadID, username=None, userID=None):
         # https://discbot.fandom.com/ru/wikia.php?controller=Fandom\MessageWall\MessageWall&method=createReply&format=json
 
         if not userID:
             userID = self.getUserID()
 
         payload = {
-            'controller': 'Fandom\MessageWall\MessageWall',
+            'controller': 'Fandom\\MessageWall\\MessageWall',
             'method': 'createReply',
             'format': 'json'
         }
@@ -268,9 +269,9 @@ class DiscussionsBot():
             'token': self.__getToken(),
             'wallOwnerId': str(userID),
             'threadId': str(threadID),
-            'rawContent': message.getRawContent(),
-            'jsonModel': message.getJSONModel(),
-            'attachments': message.getAttachments()
+            'rawContent': discMessage.getRawContent(),
+            'jsonModel': discMessage.getJSONModel(),
+            'attachments': discMessage.getAttachments()
         }
 
         response = self.__session.post(self.__apiSocialActivity, params=payload, data=body, headers=self.__headers)
@@ -289,6 +290,9 @@ class DiscussionsBot():
     
     def getWikiLang():
         return self.__wikilang
+    
+    def getWikiLink():
+        return self.__wikilink
     
     def __getMetaWiki(self):
         payload = {
@@ -312,6 +316,41 @@ class DiscussionsBot():
     def getForumID(self, username=None, userID=None):
         message = self.getUserProfileActivity(username=username, userID=userID, limit=1)
         return message[0]['forumID']
+    
+    def getPageName(self, message):
+        if not message['type'] == 'ARTICLE_COMMENT':
+            return message['thread']
+        
+        return self.__getArticleTitle(message['forumID'])
+    
+    def getPageLink(self, message):
+        if message['type'] in ['EDIT', 'NEW', 'LOG', 'CATEGORIZE']:
+            # если `type` сообщения входит в категорию обычного вики-пространства, то имя страницы хранится в `thread`
+            return self.__wikilink + '/wiki/' + message['thread']
+        
+        if message['type'] == 'FORUM':
+            # если `type` равен `FORUM`, то полная ссылка строится вот так:
+            return self.__wikilink + '/f/p/' + message['threadID'] + '/r/' + message['postID']
+        
+        if message['type'] == 'WALL':
+            # если работаем со стеной обсуждения, то сначала нужно вытащить имя, чья эта стена обсуждения вообще
+            # в начале `forum` находится имя владельца, а потом всегда идет стандартная фраза ` Message Wall` (13 символов)
+            return self.__wikilink + '/wiki/Message_Wall:' + message['forum'][:-13] + '?threadId=' + message['threadID'] + '#' + message['postID']
+
+        if message['type'] == 'ARTICLE_COMMENT':
+            return self.__wikilink + '/wiki/' + self.getArticleTitle(message['forumID']) + '?commentId=' + message['threadID'] + '&replyId=' + message['postID']
+    
+    def __getArticleTitle(self, forumID):
+        payload = {
+            'controller': 'ArticleComments',
+            'method': 'getArticleTitle',
+            'stablePageId': str(forumID),
+            'format': 'json'
+        }
+
+        response = self.__session.get(self.__apiSocialActivity, params=payload, headers=self.__headers)
+        content = response.json()
+        return content['title']
     
     def __getToken(self):
         payload = {
