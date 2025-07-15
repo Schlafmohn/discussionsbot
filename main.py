@@ -28,18 +28,18 @@ class MyDiscussionsBot():
             # для успешной работы бота, сначала соберем все свежие правки и социальную активность на вики
             listNewMessages = self.myBot.getSocialActivity(self.settings['lastCheck'])
 
-            self.workMyBot()
+            self.workMyBot(listNewMessages)
             self.settings['lastCheck'] = listNewMessages[-1]['timestamp'].strftime('%Y-%m-%dT%H:%M:%SZ')
             self.updateSettings()
             
             time.sleep(60 * 5) # каждые 5 минут бот будет подхватывать новые данные с вики
     
-    def workMyBot(self):
+    def workMyBot(self, listNewMessages):
         for post in listNewMessages:
-            time.sleep(60) # Фэндом жалуется, если слишком часто дергать его сервера
-            autogreeting.autogreeting(self, post) # автоприветствие новых участников
+            # time.sleep(60) # Фэндом жалуется, если слишком часто дергать его сервера
+            # autogreeting.autogreeting(self, post) # автоприветствие новых участников
 
-            time.sleep(60)
+            # time.sleep(60)
             commands.commands(self, post) # команды бота
     
     def updateSettings(self):

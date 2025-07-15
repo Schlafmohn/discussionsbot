@@ -151,7 +151,7 @@ class DiscussionsBot():
     
     def getUserProfileActivity(self, username=None, userID=None, limit=10):
         if not userID:
-            userID = self.getUserID(username)
+            userID = self.existsUserID(username)
 
         payload = {
             'controller': 'DiscussionContribution',
@@ -221,8 +221,8 @@ class DiscussionsBot():
 
         for i in content:
             # игнорируем любые сообщения от анонимных участников (ID = 0) и свои же сообщения (от бота)
-            if i['createdBy']['id'] == '0' or i['createdBy']['id'] == str(self.__botUserID):
-                continue
+            # if i['createdBy']['id'] == '0' or i['createdBy']['id'] == str(self.__botUserID):
+            #     continue
 
             messages.append({
                 # возможные варианты: FORUM, WALL и ARTICLE_COMMENT
@@ -270,7 +270,7 @@ class DiscussionsBot():
     def createThreadDiscussions(self, discMessage, title, forumID):
         queryStringParameters = {
             'controller': 'DiscussionThread',
-            'method': 'create'
+            'method': 'create',
             'forumId': str(forumID)
         }
 
@@ -295,7 +295,7 @@ class DiscussionsBot():
     
     def createThreadMessageWall(self, discMessage, title, username=None, userID=None):
         if not userID:
-            userID = self.getUserID(username)
+            userID = self.existsUserID(username)
 
         queryStringParameters = {
             'controller': 'Fandom\\MessageWall\\MessageWall',
@@ -358,7 +358,7 @@ class DiscussionsBot():
     
     def createReplyMessageWall(self, discMessage, threadID, username=None, userID=None):
         if not userID:
-            userID = self.getUserID(username)
+            userID = self.existsUserID(username)
 
         queryStringParameters = {
             'controller': 'Fandom\\MessageWall\\MessageWall',
@@ -420,7 +420,7 @@ class DiscussionsBot():
     
     def deletePostMessageWall(self, threadID=None, postID=None, username=None, userID=None):
         if not userID:
-            userID = self.getUserID(username)
+            userID = self.existsUserID(username)
 
         queryStringParameters = {
             'controller': 'Fandom\\MessageWall\\MessageWall',
@@ -517,7 +517,7 @@ class DiscussionsBot():
     
     def lockPostMessageWall(self, threadID, username=None, userID=None):
         if not userID:
-            userID = self.getUserID(username)
+            userID = self.existsUserID(username)
 
         queryStringParameters = {
             'controller': 'Fandom\\MessageWall\\MessageWall',
@@ -555,9 +555,24 @@ class DiscussionsBot():
         return self.__wikiID
     # конец закрытых служебных полей
     
-    def getUserID(self, username):
-        message = self.getUserContributions(username=username, limit=1)
-        return message[0]['userID']
+    def existsUserID(self, username):
+        ''' делает сразу две вещи: проверяет, существует ли участник, если нет - 
+            вернет 0 (анонимный участник) второе - если существует, вернет его ID '''
+
+        queryStringParameters = {
+            'action': 'query',
+            'list': 'users',
+            'ususers': username,
+            'format': 'json'
+        }
+
+        response = self.__session.get(self.__linkAPI_PHP, params=queryStringParameters, headers=self.__headers)
+        content = response.json()['query']['users'][0]
+
+        if content.get('missing'):
+            return 0
+    
+        return content['userid']
     
     def getForumID(self, username=None, userID=None):
         message = self.getUserProfileActivity(username=username, userID=userID, limit=1)
@@ -585,7 +600,7 @@ class DiscussionsBot():
 
         if message['type'] == 'ARTICLE_COMMENT':
             return self.__wikilink + '/wiki/' + self.getArticleTitle(message['forumID']) + '?commentId=' + str(message['threadID']) + '&replyId=' + str(message['postID'])
-    
+        
     def __getArticleTitle(self, forumID):
         payload = {
             'controller': 'ArticleComments',
