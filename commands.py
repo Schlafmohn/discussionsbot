@@ -18,7 +18,7 @@ def commands(self, post):
         replyPostCommand.addText(', – бот обсуждений, написанный абсолютно с нуля участником Зубенко Михаил Петрович. Если у тебя будут какие-то вопросы, лучше обращайся к нему. Держи даже ')
         replyPostCommand.addText('ссылку', link='https://warriors-cats.fandom.com/ru/wiki/Стена_обсуждения:Зубенко_Михаил_Петрович').addText('. Мне нет никакого смысла писать, я не обладаю даже встроенной функцией от Chat GPT 🏓')
 
-        self.myBot.createReplyMessageWalk(
+        self.myBot.createReplyMessageWall(
             replyPostCommand,
             threadID=post['threadID'],
             userID=self.myBot.getBotUserID()
@@ -41,7 +41,7 @@ def commands(self, post):
         replyPostCommand = discmess.DiscussionsMessage()
         replyPostCommand.addText(dataReplyPost['UPDATE AUTOTITLE'].replace('$USERNAME', post['user']).replace('$TITLE', newTitle))
 
-        self.myBot.createReplyMessageWalk(
+        self.myBot.createReplyMessageWall(
             replyPostCommand,
             threadID=post['threadID'],
             userID=self.myBot.getBotUserID()
@@ -71,7 +71,7 @@ def commands(self, post):
         replyPostCommand = discmess.DiscussionsMessage()
         replyPostCommand.addText(dataReplyPost['UPDATE AUTOPOST'].replace('$USERNAME', post['user']))
 
-        self.myBot.createReplyMessageWalk(
+        self.myBot.createReplyMessageWall(
             replyPostCommand,
             threadID=post['threadID'],
             userID=self.myBot.getBotUserID()

@@ -18,8 +18,8 @@ class DiscussionsBot():
         self.__login(username, password) # заходим в аккаунт участника-бота
         self.__getMetaInfo(wikilink) # получаем метаданные о себе и о вики, на которой будем работать
 
-        self.__apiRecentChanges = self.__wikilink + '/api.php'
-        self.__apiSocialActivity = self.__wikilink + '/wikia.php'
+        self.__linkAPI_PHP = self.__wikilink + '/api.php'
+        self.__linkWikiaAPI_PHP = self.__wikilink + '/wikia.php'
     
     def __login(self, username, password):
         url = 'https://services.fandom.com/mobile-fandom-app/fandom-auth/login'
@@ -94,11 +94,11 @@ class DiscussionsBot():
             'format': 'json'
         }
 
-        response = self.__session.get(self.__apiRecentChanges, params=payload, headers=self.__headers)
+        response = self.__session.get(self.__linkAPI_PHP, params=payload, headers=self.__headers)
         print('[{}] [{}] Получили свежие правки на вики {}'.format(
             self.__getDateTimeNow(),
             response.status_code,
-            self.__apiRecentChanges
+            self.__linkAPI_PHP
         ))
 
         content = response.json()
@@ -112,11 +112,11 @@ class DiscussionsBot():
             'since': since[:-1] + '.000Z'
         }
 
-        response = self.__session.get(self.__apiSocialActivity, params=payload, headers=self.__headers)
+        response = self.__session.get(self.__linkWikiaAPI_PHP, params=payload, headers=self.__headers)
         print('[{}] [{}] Получили социальную активность на вики {}'.format(
             self.__getDateTimeNow(),
             response.status_code,
-            self.__apiSocialActivity
+            self.__linkWikiaAPI_PHP
         ))
 
         content = response.json()
@@ -138,12 +138,12 @@ class DiscussionsBot():
             payload['ucuserids'] = userID
             telnetUser = str(userID)
 
-        response = self.__session.get(self.__apiRecentChanges, params=payload, headers=self.__headers)
+        response = self.__session.get(self.__linkAPI_PHP, params=payload, headers=self.__headers)
         print('[{}] [{}] Получили вклад участника {} на вики {}'.format(
             self.__getDateTimeNow(),
             response.status_code,
             telnetUser,
-            self.__apiRecentChanges
+            self.__linkAPI_PHP
         ))
 
         content = response.json()
@@ -160,12 +160,12 @@ class DiscussionsBot():
             'limit': str(limit)
         }
 
-        response = self.__session.get(self.__apiSocialActivity, params=payload, headers=self.__headers)
+        response = self.__session.get(self.__linkWikiaAPI_PHP, params=payload, headers=self.__headers)
         print('[{}] [{}] Получили активность участника {} на вики {}'.format(
             self.__getDateTimeNow(),
             response.status_code,
             userID,
-            self.__apiSocialActivity
+            self.__linkWikiaAPI_PHP
         ))
 
         content = response.json() # на самом деле, это более, чем бессмысленно, но пока, сейчас на стадии разработки, это более, чем хорошо
@@ -267,22 +267,43 @@ class DiscussionsBot():
         
         return messages
     
-    def createThreadDiscussions(self, discMessage):
-        pass
-    
-    def createThreadMessageWalk(self, discMessage, title, username=None, userID=None):
-        # https://discbot.fandom.com/ru/wikia.php?controller=Fandom\MessageWall\MessageWall&method=createThread&format=json
+    def createThreadDiscussions(self, discMessage, title, forumID):
+        queryStringParameters = {
+            'controller': 'DiscussionThread',
+            'method': 'create'
+            'forumId': str(forumID)
+        }
 
+        requestData = {
+            'MIME Type': 'application/json',
+            'Encoding': 'utf-8',
+            'Request Data': {
+                'body': discMessage.getRawContent(),
+                'jsonModel': discMessage.getJSONModel(),
+                'attachments': discMessage.getAttachments(),
+                'forumId': str(forumID),
+                'siteId': str(self.__wikiID),
+                'title': title,
+                'source': 'DESKTOP_WEB_FEPO',
+                'funnel': 'TEXT',
+                'articleIds': []
+            }
+        }
+
+        response = self.__session.post(self.__linkWikiaAPI_PHP, params=queryStringParameters, data=requestData, headers=self.__headers)
+        print('[{}] [{}] Create the new thread on Discussions'.format(self.__getDateTimeNow(), response.status_code))
+    
+    def createThreadMessageWall(self, discMessage, title, username=None, userID=None):
         if not userID:
             userID = self.getUserID(username)
 
-        payload = {
+        queryStringParameters = {
             'controller': 'Fandom\\MessageWall\\MessageWall',
             'method': 'createThread',
             'format': 'json'
         }
 
-        body = {
+        requestData = {
             'MIME Type': 'application/x-www-form-urlencoded; charset=UTF-8',
             'token': self.__getToken(),
             'wallOwnerId': str(userID),
@@ -292,30 +313,60 @@ class DiscussionsBot():
             'attachments': discMessage.getAttachments()
         }
 
-        response = self.__session.post(self.__apiSocialActivity, params=payload, data=body, headers=self.__headers)
-        print('[{}] [{}] Отправили сообщение на стену обсуждения участника {} на вики {}'.format(
-            self.__getDateTimeNow(),
-            response.status_code,
-            userID,
-            self.__apiSocialActivity
-        ))
+        response = self.__session.post(self.__linkWikiaAPI_PHP, params=queryStringParameters, data=requestData, headers=self.__headers)
+        print('[{}] [{}] Create the new thread on Message Wall'.format(self.__getDateTimeNow(), response.status_code))
     
-    def createReplyDiscussions(self, discMessage, title, username=None, userID=None):
-        pass
-    
-    def createReplyMessageWalk(self, discMessage, threadID, username=None, userID=None):
-        # https://discbot.fandom.com/ru/wikia.php?controller=Fandom\MessageWall\MessageWall&method=createReply&format=json
+    def createThreadArticleComments(self, discMessage, pagename):
+        queryStringParameters = {
+            'controller': 'ArticleCommentsController',
+            'method': 'postNewCommentThread'
+        }
 
+        requestData = {
+            'MIME Type': 'application/x-www-form-urlencoded; charset=UTF-8',
+            'title': pagename,
+            'namespace': '0',
+            'token': self.__getToken(),
+            'jsonModel': discMessage.getJSONModel(),
+            'attachments': discMessage.getAttachments()
+        }
+
+        response = self.__session.post(self.__linkWikiaAPI_PHP, params=queryStringParameters, data=requestData, headers=self.__headers)
+        print('[{}] [{}] Create the new thread on Article Comments'. format(self.__getDateTimeNow(), response.status_code))
+    
+    def createReplyDiscussions(self, discMessage, threadID):
+        queryStringParameters = {
+            'controller': 'DiscussionPost',
+            'method': 'create'
+        }
+
+        requestData = {
+            'MIME Type': 'application/json',
+            'Encoding': 'utf-8',
+            'Request Data': {
+                'body': discMessage.getRawContent(),
+                'jsonModel': discMessage.getJSONModel(),
+                'attachments': discMessage.getAttachments(),
+                'siteId': str(self.__wikiID),
+                'source': 'DESKTOP_WEB_FEPO',
+                'threadId': str(threadID)
+            }
+        }
+        
+        response = self.__session.post(self.__linkWikiaAPI_PHP, params=queryStringParameters, data=requestData, headers=self.__headers)
+        print('[{}] [{}] Create the reply on Discussions'. format(self.__getDateTimeNow(), response.status_code))
+    
+    def createReplyMessageWall(self, discMessage, threadID, username=None, userID=None):
         if not userID:
             userID = self.getUserID(username)
 
-        payload = {
+        queryStringParameters = {
             'controller': 'Fandom\\MessageWall\\MessageWall',
             'method': 'createReply',
             'format': 'json'
         }
 
-        body = {
+        requestData = {
             'MIME Type': 'application/x-www-form-urlencoded; charset=UTF-8',
             'token': self.__getToken(),
             'wallOwnerId': str(userID),
@@ -325,13 +376,164 @@ class DiscussionsBot():
             'attachments': discMessage.getAttachments()
         }
 
-        response = self.__session.post(self.__apiSocialActivity, params=payload, data=body, headers=self.__headers)
-        print('[{}] [{}] Отправили сообщение на стену обсуждения участника {} на вики {}'.format(
-            self.__getDateTimeNow(),
-            response.status_code,
-            userID,
-            self.__apiSocialActivity
-        ))
+        response = self.__session.post(self.__linkWikiaAPI_PHP, params=queryStringParameters, data=requestData, headers=self.__headers)
+        print('[{}] [{}] Create the reply on Message Wall'.format(self.__getDateTimeNow(), response.status_code))
+    
+    def createReplyArticleComments(self, discMessage, threadID, pagename):
+        queryStringParameters = {
+            'controller': 'ArticleCommentsController',
+            'method': 'postNewCommentReply'
+        }
+
+        requestData = {
+            'MIME Type': 'application/x-www-form-urlencoded; charset=UTF-8',
+            'threadId': str(threadID),
+            'title': pagename,
+            'namespace': '0',
+            'token': self.__getToken(),
+            'jsonModel': discMessage.getJSONModel(),
+            'attachments': discMessage.getAttachments()
+        }
+
+        response = self.__session.post(self.__linkWikiaAPI_PHP, params=queryStringParameters, data=requestData, headers=self.__headers)
+        print('[{}] [{}] Create the reply on Article Comments'.format(self.__getDateTimeNow(), response.status_code))
+    
+    def deletePostDiscussions(self, threadID=None, postID=None):
+        queryStringParameters = {
+            'controller': 'DiscussionThread',
+            'method': 'delete'
+        }
+
+        if threadID:
+            payload['threadId'] = str(threadID)
+        else:
+            payload['postId'] = str(postID)
+        
+        requestData = {
+            'MIME Type': 'multipart/form-data',
+            'Boundary': '----WebKitFormBoundaryep0uj55I2xhFAxby',
+            'Request Data': '------WebKitFormBoundaryep0uj55I2xhFAxby\nContent-Disposition: form-data; name="suppressContent"\n\nfalse\n------WebKitFormBoundaryep0uj55I2xhFAxby--'
+        }
+
+        response = self.__session.post(self.__linkWikiaAPI_PHP, params=queryStringParameters, data=requestData, headers=self.__headers)
+        print('[{}] [{}] Delete the thread or the post on Discussions'. format(self.__getDateTimeNow(), response.status_code))
+    
+    def deletePostMessageWall(self, threadID=None, postID=None, username=None, userID=None):
+        if not userID:
+            userID = self.getUserID(username)
+
+        queryStringParameters = {
+            'controller': 'Fandom\\MessageWall\\MessageWall',
+            'format': 'json'
+        }
+
+        requestData = {
+            'MIME Type': 'application/x-www-form-urlencoded; charset=UTF-8',
+            'token': self.__getToken(),
+            'wallOwnerId': str(userID),
+            'suppressContent': 'false'
+        }
+
+        if threadID:
+            payload['method'] = 'delete',
+            body['postId'] = str(threadID)
+        else:
+            payload['method'] = 'deleteReply',
+            body['postId'] = str(postID)
+
+        response = self.__session.post(self.__linkWikiaAPI_PHP, params=queryStringParameters, data=requestData, headers=self.__headers)
+        print('[{}] [{}] Delete the thread or the post on Message Wall'. format(self.__getDateTimeNow(), response.status_code))
+    
+    def deletePostArticleComments(self, postID, pagename):
+        queryStringParameters = {
+            'controller': 'ArticleCommentsController',
+            'method': 'deletePost'
+        }
+
+        requestData = {
+            'MIME Type': 'application/x-www-form-urlencoded; charset=UTF-8',
+            'postId': str(postID),
+            'token': self.__getToken(),
+            'suppressContent': 'false',
+            'title': pagename,
+            'namespace': '0'
+        }
+
+        response = self.__session.post(self.__linkWikiaAPI_PHP, params=payload, data=body, headers=self.__headers)
+        print('[{}] [{}] Delete the thread or the post on Article Comments'. format(self.__getDateTimeNow(), response.status_code))
+    
+    def reportPostDiscussions(self, postID):
+        queryStringParameters = {
+            'controller': 'DiscussionModeration',
+            'method': 'reportPost',
+            'postId': str(postID)
+        }
+
+        response = self.__session.post(self.__linkWikiaAPI_PHP, params=queryStringParameters, headers=self.__headers)
+        print('[{}] [{}] Report the thread or the post on Discussions'. format(self.__getDateTimeNow(), response.status_code))
+    
+    def reportPostMessageWall(self, postID):
+        queryStringParameters = {
+            'controller': 'Fandom\\MessageWall\\MessageWall',
+            'method': 'reportPost',
+            'format': 'json'
+        }
+
+        requestData = {
+            'MIME Type': 'application/x-www-form-urlencoded; charset=UTF-8',
+            'token': self.__getToken(),
+            'postId': str(postID)
+        }
+
+        response = self.__session.post(self.__linkWikiaAPI_PHP, params=queryStringParameters, data=requestData, headers=self.__headers)
+        print('[{}] [{}] Report the thread or the post on Message Wall'. format(self.__getDateTimeNow(), response.status_code))
+    
+    def reportPostArticleComments(self, postID, pagename):
+        queryStringParameters = {
+            'controller': 'ArticleCommentsController',
+            'method': 'reportPost'
+        }
+
+        requestData = {
+            'MIME Type': 'application/x-www-form-urlencoded; charset=UTF-8',
+            'postId': str(postID),
+            'title': pagename,
+            'namespace': '0',
+            'token': self.__getToken()
+        }
+
+        response = self.__session.post(self.__linkWikiaAPI_PHP, params=queryStringParameters, data=requestData, headers=self.__headers)
+        print('[{}] [{}] Report the thread or the post on Article Comments'. format(self.__getDateTimeNow(), response.status_code))
+    
+    def lockPostDiscussions(self, threadID):
+        queryStringParameters = {
+            'controller': 'DiscussionModeration',
+            'method': 'lock',
+            'threadId': str(postID)
+        }
+
+        response = self.__session.post(self.__linkWikiaAPI_PHP, params=queryStringParameters, headers=self.__headers)
+        print('[{}] [{}] Lock the thread on Discussions'. format(self.__getDateTimeNow(), response.status_code))
+    
+    def lockPostMessageWall(self, threadID, username=None, userID=None):
+        if not userID:
+            userID = self.getUserID(username)
+
+        queryStringParameters = {
+            'controller': 'Fandom\\MessageWall\\MessageWall',
+            'method': 'lockThread',
+            'format': 'json'
+        }
+
+        requestData = {
+            'MIME Type': 'application/x-www-form-urlencoded; charset=UTF-8',
+            'token': self.__getToken(),
+            'wallOwnerId': str(userID),
+            'threadId': str(threadID)
+        }
+
+        response = self.__session.post(self.__linkWikiaAPI_PHP, params=queryStringParameters, data=requestData, headers=self.__headers)
+        print('[{}] [{}] Lock the thread on Message Wall'.format(self.__getDateTimeNow(), response.status_code))
     
     # начало служебных геттеров для получения закрытых полей
     def getBotUserName(self):
@@ -392,7 +594,7 @@ class DiscussionsBot():
             'format': 'json'
         }
 
-        response = self.__session.get(self.__apiSocialActivity, params=payload, headers=self.__headers)
+        response = self.__session.get(self.__linkWikiaAPI_PHP, params=payload, headers=self.__headers)
         content = response.json()
         return content['title']
     
@@ -403,7 +605,7 @@ class DiscussionsBot():
             'format': 'json'
         }
 
-        response = self.__session.get(self.__apiRecentChanges, params=payload, headers=self.__headers)
+        response = self.__session.get(self.__linkAPI_PHP, params=payload, headers=self.__headers)
         content = response.json()
         return content['query']['tokens']['csrftoken']
 
