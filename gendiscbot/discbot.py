@@ -1,16 +1,11 @@
 import json
 import requests
 
-import discmess
-
 from datetime import datetime, timezone
 
 class DiscussionsBot():
-    def __init__(self, botUsername, password, wikilink):
+    def __init__(self, username, password, wikilink):
         self.__session = requests.Session()
-        self.__wikilink = wikilink
-        self.__apiRecentChanges = wikilink + '/api.php'
-        self.__apiSocialActivity = wikilink + '/wikia.php'
 
         self.__headers = {
             'User-Agent': 'Discussions Bot v0.1 14 July, 2025',
@@ -20,26 +15,64 @@ class DiscussionsBot():
             'X-Requested-With': 'XMLHttpRequest'
         }
 
-        self.__botUsername = botUsername
-        self.__login(password) # там внутри устанавливается botUserID
-        self.__getMetaWiki() # а там wikiname, wikiID и wikilang
+        self.__login(username, password) # заходим в аккаунт участника-бота
+        self.__getMetaInfo(wikilink) # получаем метаданные о себе и о вики, на которой будем работать
+
+        self.__apiRecentChanges = self.__wikilink + '/api.php'
+        self.__apiSocialActivity = self.__wikilink + '/wikia.php'
     
-    def __login(self, password):
+    def __login(self, username, password):
         url = 'https://services.fandom.com/mobile-fandom-app/fandom-auth/login'
 
         data = {
-            'username': self.__botUsername,
+            'username': username,
             'password': password
         }
 
         response = self.__session.post(url, data=data, headers=self.__headers)
-        print('[{}] [{}] Вошли в аккаунт участника-бота {} на Фэндоме'.format(
+
+        print('[{}] [{}] Вошли в аккаунт участника-бота (ID {}) на Фэндоме'.format(
             self.__getDateTimeNow(),
             response.status_code,
-            self.__botUsername
+            response.json()['user_id']
         ))
+    
+    def __getMetaInfo(self, wikilink):
+        ''' для корректной работы бота обсуждений нужны следующие данные:
+            - верное название участника-бота (непонятно, что в config.json находится)
+            - ID участника-бота
+            - верно название вики
+            - язык вики (русский, английский, польский)
+            - и верный URL вики (да, я настолько даже себе не доверяю) '''
 
-        self.__botUserID = int(response.json()['user_id'])
+        payload = {
+            'action': 'query',
+            'meta': 'userinfo|siteinfo',
+            'siprop': 'general|variables',
+            'format': 'json'
+        }
+
+        response = self.__session.get(wikilink + 'api.php', params=payload, headers=self.__headers)
+        content = response.json()
+
+        # данные для участника-бота находятся в `userinfo`
+        self.__botUsername = content['query']['userinfo']['name']
+        self.__botUserID = content['query']['userinfo']['id']
+
+        # данные для вики находятся в `sitename`
+        self.__wikiname = content['query']['general']['sitename']
+        self.__wikilang = content['query']['general']['lang']
+        self.__wikilink = content['query']['general']['server'] + content['query']['general']['scriptpath']
+
+        # а вот с ID вики намного сложнее, оно находится в `wgCityId`
+        self.__wikiID = content['query']['variables'][1]['*']
+
+        print('[{}] [{}] Получили метаданные участника-бота (ID {}) и вики на Фэндоме (ID {})'.format(
+            self.__getDateTimeNow(),
+            response.status_code,
+            content['query']['userinfo']['id'],
+            content['query']['variables'][1]['*']
+        ))
     
     def getWikiActivity(self, sinсe, limit=100):
         edits = self.getRecentChanges(sinсe, limit=limit)
@@ -55,7 +88,7 @@ class DiscussionsBot():
             'rcstart': since,
             'rcdir': 'newer', # список выводится от старых к новым правкам
             'rcexcludeuser': self.__botUsername, # игнорируем любые свои правки (от бота)
-            'rcprop': 'user|userid|timestamp|title|ids',
+            'rcprop': 'user|userid|comment|timestamp|title|ids',
             'rcshow': '!anon|!bot', # игнорируем любые правки от анонимных участников и от других ботов
             'rclimit': str(limit),
             'format': 'json'
@@ -161,7 +194,11 @@ class DiscussionsBot():
                 'pingDiscBot': False,
 
                 'forum': None, # добавлен для совместимости, все страницы имеют значение None
-                'forumID': i['ns']
+                'forumID': i['ns'],
+
+                # добавлено для совместимости с `helpSocialActivity()`
+                'position': i['position'],
+                'content': i['revid']
             })
 
             if 'type' in i:
@@ -180,9 +217,9 @@ class DiscussionsBot():
         messages = []
 
         for i in content:
-            # игнорируем любые сообщения от анонимных участников (ID = 0) и свои же сообщения (от бота)
-            # if i['createdBy']['id'] == '0' or i['createdBy']['id'] == str(self.__botUserID):
-            #     continue
+            игнорируем любые сообщения от анонимных участников (ID = 0) и свои же сообщения (от бота)
+            if i['createdBy']['id'] == '0' or i['createdBy']['id'] == str(self.__botUserID):
+                continue
 
             messages.append({
                 # возможные варианты: FORUM, WALL и ARTICLE_COMMENT
@@ -204,12 +241,20 @@ class DiscussionsBot():
                 # в случае WALL:            хранят имя участница и стену обсуждения, ID - непонятно
                 # в случае ARTICLE_COMMENT: хранят None и ID страницы
                 'forum': i['forumName'],
-                'forumID': int(i['forumId'])
+                'forumID': int(i['forumId']),
+
+                'position': i['position'],
+                'content': i['rawContent']
             })
 
+            # на форуме пользователи могут пинговать участников в буквальном смысле, поэтому проверяем наличие ID бота в `atMentions`
             if not i['_embedded']['attachments'][0]['atMentions']:
                 messages[-1]['pingDiscBot'] = False
             elif i['_embedded']['attachments'][0]['atMentions'] == str(self.__botUserID):
+                messages[-1]['pingDiscBot'] = True
+            
+            # но вот на стене обсуждения пользователи не могут пинговать, поэтому стоит проверить, чтобы стена обсуждения принадлежала боту
+            if i['forumName'] == '{} Message Wall'.format(self.__botUsername):
                 messages[-1]['pingDiscBot'] = True
         
         messages.reverse() # список выводится от старых к новым сообщениям и комментариям
@@ -256,7 +301,7 @@ class DiscussionsBot():
         # https://discbot.fandom.com/ru/wikia.php?controller=Fandom\MessageWall\MessageWall&method=createReply&format=json
 
         if not userID:
-            userID = self.getUserID()
+            userID = self.getUserID(username)
 
         payload = {
             'controller': 'Fandom\\MessageWall\\MessageWall',
@@ -282,32 +327,25 @@ class DiscussionsBot():
             self.__apiSocialActivity
         ))
     
+    # начало служебных геттеров для получения закрытых полей
+    def getBotUserName(self):
+        return self.__botUsername
+
+    def getBotUserID(self):
+        return self.__botUserID
+
     def getWikiName(self):
         return self.__wikiname
-    
+
+    def getWikiLang(self):
+        return self.__wikilang
+
+    def getWikiLink(self):
+        return self.__wikilink
+
     def getWikiID(self):
         return self.__wikiID
-    
-    def getWikiLang():
-        return self.__wikilang
-    
-    def getWikiLink():
-        return self.__wikilink
-    
-    def __getMetaWiki(self):
-        payload = {
-            'action': 'query',
-            'meta': 'siteinfo',
-            'siprop': 'general|variables',
-            'format': 'json'
-        }
-
-        response = self.__session.get(self.__apiRecentChanges, params=payload, headers=self.__headers)
-        content = response.json()
-
-        self.__wikiname = content['query']['general']['sitename']
-        self.__wikiID = content['query']['variables'][1]['*']
-        self.__wikilang = content['query']['variables'][0]['*']
+    # конец закрытых служебных полей
     
     def getUserID(self, username):
         message = self.getUserContributions(username=username, limit=1)
@@ -330,15 +368,15 @@ class DiscussionsBot():
         
         if message['type'] == 'FORUM':
             # если `type` равен `FORUM`, то полная ссылка строится вот так:
-            return self.__wikilink + '/f/p/' + message['threadID'] + '/r/' + message['postID']
+            return self.__wikilink + '/f/p/' + str(message['threadID']) + '/r/' + str(message['postID'])
         
         if message['type'] == 'WALL':
             # если работаем со стеной обсуждения, то сначала нужно вытащить имя, чья эта стена обсуждения вообще
             # в начале `forum` находится имя владельца, а потом всегда идет стандартная фраза ` Message Wall` (13 символов)
-            return self.__wikilink + '/wiki/Message_Wall:' + message['forum'][:-13] + '?threadId=' + message['threadID'] + '#' + message['postID']
+            return self.__wikilink + '/wiki/Message_Wall:' + message['forum'][:-13] + '?threadId=' + str(message['threadID']) + '#' + str(message['postID'])
 
         if message['type'] == 'ARTICLE_COMMENT':
-            return self.__wikilink + '/wiki/' + self.getArticleTitle(message['forumID']) + '?commentId=' + message['threadID'] + '&replyId=' + message['postID']
+            return self.__wikilink + '/wiki/' + self.getArticleTitle(message['forumID']) + '?commentId=' + str(message['threadID']) + '&replyId=' + str(message['postID'])
     
     def __getArticleTitle(self, forumID):
         payload = {
