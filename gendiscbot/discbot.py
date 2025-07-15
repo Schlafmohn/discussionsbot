@@ -88,7 +88,7 @@ class DiscussionsBot():
             'rcstart': since,
             'rcdir': 'newer', # список выводится от старых к новым правкам
             'rcexcludeuser': self.__botUsername, # игнорируем любые свои правки (от бота)
-            'rcprop': 'user|userid|comment|timestamp|title|ids',
+            'rcprop': 'user|userid|comment|timestamp|title|ids|size',
             'rcshow': '!anon|!bot', # игнорируем любые правки от анонимных участников и от других ботов
             'rclimit': str(limit),
             'format': 'json'
@@ -197,8 +197,11 @@ class DiscussionsBot():
                 'forumID': i['ns'],
 
                 # добавлено для совместимости с `helpSocialActivity()`
-                'position': i['position'],
-                'content': i['revid']
+                'position': i['revid'],
+                'content': i['comment'],
+
+                'jsonModel': i['comment'],
+                'attachments': i['size']
             })
 
             if 'type' in i:
@@ -217,7 +220,7 @@ class DiscussionsBot():
         messages = []
 
         for i in content:
-            игнорируем любые сообщения от анонимных участников (ID = 0) и свои же сообщения (от бота)
+            # игнорируем любые сообщения от анонимных участников (ID = 0) и свои же сообщения (от бота)
             if i['createdBy']['id'] == '0' or i['createdBy']['id'] == str(self.__botUserID):
                 continue
 
@@ -244,7 +247,10 @@ class DiscussionsBot():
                 'forumID': int(i['forumId']),
 
                 'position': i['position'],
-                'content': i['rawContent']
+                'content': i['rawContent'],
+
+                'jsonModel': i['jsonModel'],
+                'attachments': i['_embedded']['attachments']
             })
 
             # на форуме пользователи могут пинговать участников в буквальном смысле, поэтому проверяем наличие ID бота в `atMentions`
