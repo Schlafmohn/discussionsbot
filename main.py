@@ -4,7 +4,7 @@ import time
 from general import discbot
 from general import activity
 from general import moderation
-from general import message
+from general import discmess
 
 # from modules import commands
 # from modules import autogreeting
@@ -14,7 +14,7 @@ from datetime import datetime
 class MyDiscussionsBot:
     def __init__(self):
         with open('configs/config.json', 'r') as file:
-            config = json.loads(file.read())
+            config = json.loads(file)
         
         self.myBot = discbot.DiscussionsBot(
             config['username'],
@@ -30,7 +30,7 @@ class MyDiscussionsBot:
 
         self.fileSettings = 'configs/settings.json'
         with open(self.fileSettings, 'r') as file:
-            self.settings = json.loads(file.read())
+            self.settings = json.loads(file)
         
         # listNewMessages = self.activity.get_wiki_activity(self.settings['lastCheck'])
         

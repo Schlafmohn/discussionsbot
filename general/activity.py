@@ -1,7 +1,7 @@
 import re
 
 from . import discbot
-from . import message
+from . import discmess
 
 from typing import Optional
 from datetime import datetime, timezone
@@ -174,7 +174,7 @@ class DiscussionsActivity:
     
         return user['userid']
 
-    def get_page_url(self, message: message.DiscussionsMessage) -> str:
+    def get_page_url(self, message: discmess.DiscussionsMessage) -> str:
         ''' формирует ссылку на страницу/сообщение в зависимости от его типа '''
 
         match message['type']:

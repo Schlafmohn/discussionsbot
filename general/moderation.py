@@ -1,6 +1,6 @@
 from . import discbot
 from . import activity
-from . import message
+from . import discmess
 
 from typing import Optional
 
@@ -9,7 +9,7 @@ class DiscussionsModeration:
         self.bot = bot
         self.activity = activity
 
-    def create_thread_discussion(self, message: message.DiscussionsMessage, title: str, forum_id: int) -> bool:
+    def create_thread_discussion(self, message: discmess.DiscussionsMessage, title: str, forum_id: int) -> bool:
         parameters = {
             'controller': 'DiscussionThread',
             'method': 'create',
@@ -34,7 +34,7 @@ class DiscussionsModeration:
 
         return self.bot._post(self.bot._wikia_api_url, parameters, data)
 
-    def create_reply_discussion(self, message: message.DiscussionsMessage, thread_id: int) -> bool:
+    def create_reply_discussion(self, message: discmess.DiscussionsMessage, thread_id: int) -> bool:
         parameters = {
             'controller': 'DiscussionPost',
             'method': 'create'
@@ -95,7 +95,7 @@ class DiscussionsModeration:
 
         return self.bot._post(self.bot._wikia_api_url, parameters)
     
-    def create_thread_message_wall(self, message: message.DiscussionsMessage, title: str, username: Optional[str]=None, user_id: Optional[int]=None) -> bool:
+    def create_thread_message_wall(self, message: discmess.DiscussionsMessage, title: str, username: Optional[str]=None, user_id: Optional[int]=None) -> bool:
         if not username and not user_id:
             raise ValueError("Need username, or user_id")
 
@@ -117,7 +117,7 @@ class DiscussionsModeration:
 
         return self.bot._post(self.bot._wikia_api_url, parameters, data)
     
-    def create_reply_message_wall(self, message: message.DiscussionsMessage, thread_id: int, username: Optional[str]=None, user_id: Optional[int]=None) -> bool:
+    def create_reply_message_wall(self, message: discmess.DiscussionsMessage, thread_id: int, username: Optional[str]=None, user_id: Optional[int]=None) -> bool:
         if not username and not user_id:
             raise ValueError("Need username, or user_id")
 
@@ -201,7 +201,7 @@ class DiscussionsModeration:
 
         return self.bot._post(self.bot._wikia_api_url, parameters, data)
     
-    def create_thread_article_comment(self, message: message.DiscussionsMessage, pagetitle: str) -> bool:
+    def create_thread_article_comment(self, message: discmess.DiscussionsMessage, pagetitle: str) -> bool:
         parameters = {
             'controller': 'ArticleCommentsController',
             'method': 'postNewCommentThread'
@@ -218,7 +218,7 @@ class DiscussionsModeration:
 
         return self.bot._post(self.bot._wikia_api_url, parameters, data)
     
-    def create_reply_article_comment(self, message: message.DiscussionsMessage, thread_id: int, pagetitle: str) -> bool:
+    def create_reply_article_comment(self, message: discmess.DiscussionsMessage, thread_id: int, pagetitle: str) -> bool:
         parameters = {
             'controller': 'ArticleCommentsController',
             'method': 'postNewCommentReply'
