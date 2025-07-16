@@ -1,15 +1,17 @@
 import json
 import time
 
-import commands
-import autogreeting
+from general import discbot
+from general import activity
+from general import moderation
+from general import message
 
-from gendiscbot import discbot
-from gendiscbot import discmess
+# from modules import commands
+# from modules import autogreeting
 
 from datetime import datetime
 
-class MyDiscussionsBot():
+class MyDiscussionsBot:
     def __init__(self):
         with open('configs/config.json', 'r') as file:
             config = json.loads(file.read())
@@ -20,30 +22,36 @@ class MyDiscussionsBot():
             config['wikilink']
         )
 
+        self.activity = activity.DiscussionsActivity(self.myBot)
+        self.moderation = moderation.DiscussionsModeration(self.myBot, self.activity)
+
+        # self.autogreeting = Autogreeting
+        # self.commands = Commands
+
         self.fileSettings = 'configs/settings.json'
         with open(self.fileSettings, 'r') as file:
             self.settings = json.loads(file.read())
         
-        while True:
-            # для успешной работы бота, сначала соберем все свежие правки и социальную активность на вики
-            listNewMessages = self.myBot.getSocialActivity(self.settings['lastCheck'])
+        # listNewMessages = self.activity.get_wiki_activity(self.settings['lastCheck'])
+        
+        # while True:
+        #     # для успешной работы бота, сначала соберем все свежие правки и социальную активность на вики
+        #     listNewMessages = self.myBot.activity.get_wiki_activity(self.settings['lastCheck'])
 
-            self.workMyBot(listNewMessages)
-            self.settings['lastCheck'] = listNewMessages[-1]['timestamp'].strftime('%Y-%m-%dT%H:%M:%SZ')
-            self.updateSettings()
+        #     self.workMyBot(listNewMessages)
+        #     self.updateSettings()
             
-            time.sleep(60 * 5) # каждые 5 минут бот будет подхватывать новые данные с вики
+        #     time.sleep(60 * 5) # каждые 5 минут бот будет подхватывать новые данные с вики
     
     def workMyBot(self, listNewMessages):
         for post in listNewMessages:
-            # time.sleep(60) # Фэндом жалуется, если слишком часто дергать его сервера
-            # autogreeting.autogreeting(self, post) # автоприветствие новых участников
-
-            # time.sleep(60)
+            autogreeting.autogreeting(self, post) # автоприветствие новых участников
             commands.commands(self, post) # команды бота
+            time.sleep(15)
     
     def updateSettings(self):
         with open(self.fileSettings, 'w') as file:
             file.write(json.dumps(self.settings))
 
-MyDiscussionsBot()
+if __name__ == '__main__':
+    MyDiscussionsBot()

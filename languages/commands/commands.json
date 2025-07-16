@@ -1,12 +1,4 @@
 {
-    "en": [
-        "ping", "pong",
-        "autogreeting on", "autogreeting off",
-        "autogreeting enable", "autogreeting disable",
-        "autogreeting title", "autogreeting message",
-        "report on", "report off",
-        "report enable", "report disable",
-        "warn add", "warn list", "warn delete", "warn",
-        "random"
-    ]
+    "ping": ""
+
 }
