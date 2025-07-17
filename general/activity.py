@@ -1,14 +1,13 @@
 import re
-import json
 
-from . import discbot
+from . import disccore
 from . import discmess
 
 from typing import Optional
 from datetime import datetime, timezone
 
 class DiscussionsActivity:
-    def __init__(self, bot: discbot.DiscussionsBot):
+    def __init__(self, bot: disccore.DiscussionsCore):
         self.bot = bot
 
     def get_wiki_activity(self, since: str, limit: int=100) -> list[dict]:
@@ -23,7 +22,7 @@ class DiscussionsActivity:
             'list': 'recentchanges',
             'rcstart': since,
             'rcdir': 'newer', # список выводится от старых к новым правкам
-            'rcexcludeuser': self.bot._botname, # игнорируем любые свои правки (от бота)
+            'rcexcludeuser': self.bot.botname, # игнорируем любые свои правки (от бота)
             'rcprop': 'user|userid|comment|timestamp|title|ids|size',
             'rcshow': '!anon|!bot', # игнорируем любые правки от анонимных участников и от других ботов
             'rclimit': str(limit),
@@ -82,7 +81,7 @@ class DiscussionsActivity:
         ''' преобразует свежие правки или вклад участника к единому формату для DiscussionsBot '''
         posts = []
 
-        for item in content:
+        for item in content: # todo: я думаю, что эти данные не нужны вовсе
             post_type = (
                 item.get('type', '').upper()
                 if 'type' in item
@@ -117,8 +116,8 @@ class DiscussionsActivity:
 
         for item in content:
             # пропускаем сообщения анонимных участников и самого бота
-            # if item['createdBy']['id'] == '0' or item['createdBy']['id'] == str(self.bot._bot_id):
-            #     continue
+            if item['createdBy']['id'] == '0' or item['createdBy']['id'] == str(self.bot.bot_id):
+                continue
             
             post = {
                 'type': item['_embedded']['thread'][0]['containerType'], # тип сообщения: FORUM, WALL или ARTICLE_COMMENT
@@ -171,19 +170,19 @@ class DiscussionsActivity:
 
         match message['type']:
             case 'EDIT' | 'NEW' | 'LOG' | 'CATEGORIZE':
-                return '{}/wiki/{}'.format(self.bot._wikilink, message['thread'].replace(' ', '_'))
+                return '{}/wiki/{}'.format(self.bot.wikilink, message['thread'].replace(' ', '_'))
             
             case 'FORUM':
-                url = '{}/f/p/{}'.format(self.bot._wikilink, message['thread_id'])
+                url = '{}/f/p/{}'.format(self.bot.wikilink, message['thread_id'])
                 return url if message['position'] == 1 else '{}/r/{}'.format(url, message['post_id'])
             
             case 'WALL':
                 # в начале forum находится имя владельца, а потом всегда идет стандартная фраза Message Wall (13 символов)
-                url = '{}/wiki/Message_Wall:{}?threadId={}'.format(self.bot._wikilink, message['forum'][:-13].replace(' ', '_'), message['thread_id'])
+                url = '{}/wiki/Message_Wall:{}?threadId={}'.format(self.bot.wikilink, message['forum'][:-13].replace(' ', '_'), message['thread_id'])
                 return url if message['position'] == 1 else '{}#{}'.format(url, message['post_id'])
             
             case 'ARTICLE_COMMENT':
-                url = '{}/wiki/{}?commentId={}'.format(self.bot._wikilink, self.get_page_title(message['forumd_id']), message['thread_id'])
+                url = '{}/wiki/{}?commentId={}'.format(self.bot.wikilink, self.get_page_title(message['forumd_id']), message['thread_id'])
                 return url if message['position'] == 1 else '{}&replyId={}'.format(url, message['post_id'])
         
     def get_page_title(self, forum_id: int) -> str:

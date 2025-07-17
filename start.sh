@@ -1,1 +1,1 @@
-python3 main.py >> configs/working.log 2>&1
+python3 main.py >> configs/running.log 2>&1

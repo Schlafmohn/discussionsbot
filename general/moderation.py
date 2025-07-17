@@ -1,15 +1,15 @@
-from . import discbot
+from . import disccore
 from . import activity
 from . import discmess
 
 from typing import Optional
 
 class DiscussionsModeration:
-    def __init__(self, bot: discbot.DiscussionsBot, activity: activity.DiscussionsActivity):
+    def __init__(self, bot: disccore.DiscussionsCore, activity: activity.DiscussionsActivity):
         self.bot = bot
-        self.activity = activity
+        self.activity = activity # todo: есть идея объединить методы в один
 
-    def create_thread_discussion(self, message: discmess.DiscussionsMessage, title: str, forum_id: int) -> bool:
+    def create_thread_discussion(self, message: discmess.DiscussionsMessage, title: str, forum_id: int) -> None:
         parameters = {
             'controller': 'DiscussionThread',
             'method': 'create',
@@ -24,7 +24,7 @@ class DiscussionsModeration:
                 'jsonModel': message.build_raw_model(),
                 'attachments': message.build_raw_attachments(),
                 'forumId': str(forum_id),
-                'siteId': str(self.bot._wiki_id),
+                'siteId': str(self.bot.wiki_id),
                 'title': title,
                 'source': 'DESKTOP_WEB_FEPO',
                 'funnel': 'TEXT',
@@ -32,9 +32,9 @@ class DiscussionsModeration:
             }
         }
 
-        return self.bot._post(self.bot._wikia_api_url, parameters, data)
+        self.bot._post(self.bot._wikia_api_url, parameters, data)
 
-    def create_reply_discussion(self, message: discmess.DiscussionsMessage, thread_id: int) -> bool:
+    def create_reply_discussion(self, message: discmess.DiscussionsMessage, thread_id: int) -> None:
         parameters = {
             'controller': 'DiscussionPost',
             'method': 'create'
@@ -47,15 +47,15 @@ class DiscussionsModeration:
                 'body': message.build_raw_text(),
                 'jsonModel': message.build_raw_model(),
                 'attachments': message.build_raw_attachments(),
-                'siteId': str(self.bot._wiki_id),
+                'siteId': str(self.bot.wiki_id),
                 'source': 'DESKTOP_WEB_FEPO',
                 'threadId': str(thread_id)
             }
         }
         
-        return self.bot._post(self.bot._wikia_api_url, parameters, data)
+        self.bot._post(self.bot._wikia_api_url, parameters, data)
     
-    def delete_post_discussion(self, thread_id: Optional[int]=None, post_id: Optional[int]=None) -> bool:
+    def delete_post_discussion(self, thread_id: Optional[int]=None, post_id: Optional[int]=None) -> None:
         if not thread_id and not post_id:
             raise ValueError("Need thread_id, or post_id")
 
@@ -75,27 +75,27 @@ class DiscussionsModeration:
             'Request Data': '------WebKitFormBoundaryep0uj55I2xhFAxby\nContent-Disposition: form-data; name="suppressContent"\n\nfalse\n------WebKitFormBoundaryep0uj55I2xhFAxby--'
         }
 
-        return self.bot._post(self.bot._wikia_api_url, parameters, data)
+        self.bot._post(self.bot._wikia_api_url, parameters, data)
     
-    def report_post_discussion(self, post_id: int) -> bool:
+    def report_post_discussion(self, post_id: int) -> None:
         parameters = {
             'controller': 'DiscussionModeration',
             'method': 'reportPost',
             'postId': str(post_id)
         }
 
-        return self.bot._post(self.bot._wikia_api_url, parameters)
+        self.bot._post(self.bot._wikia_api_url, parameters)
     
-    def lock_lost_discussion(self, thread_id: int) -> bool:
+    def lock_lost_discussion(self, thread_id: int) -> None:
         parameters = {
             'controller': 'DiscussionModeration',
             'method': 'lock',
             'threadId': str(thread_id)
         }
 
-        return self.bot._post(self.bot._wikia_api_url, parameters)
+        self.bot._post(self.bot._wikia_api_url, parameters)
     
-    def create_thread_message_wall(self, message: discmess.DiscussionsMessage, title: str, username: Optional[str]=None, user_id: Optional[int]=None) -> bool:
+    def create_thread_message_wall(self, message: discmess.DiscussionsMessage, title: str, username: Optional[str]=None, user_id: Optional[int]=None) -> None:
         if not username and not user_id:
             raise ValueError("Need username, or user_id")
 
@@ -115,9 +115,9 @@ class DiscussionsModeration:
             'attachments': message.build_raw_attachments()
         }
 
-        return self.bot._post(self.bot._wikia_api_url, parameters, data)
+        self.bot._post(self.bot._wikia_api_url, parameters, data)
     
-    def create_reply_message_wall(self, message: discmess.DiscussionsMessage, thread_id: int, username: Optional[str]=None, user_id: Optional[int]=None) -> bool:
+    def create_reply_message_wall(self, message: discmess.DiscussionsMessage, thread_id: int, username: Optional[str]=None, user_id: Optional[int]=None) -> None:
         if not username and not user_id:
             raise ValueError("Need username, or user_id")
 
@@ -137,9 +137,9 @@ class DiscussionsModeration:
             'attachments': message.build_raw_attachments()
         }
 
-        return self.bot._post(self.bot._wikia_api_url, parameters, data)
+        self.bot._post(self.bot._wikia_api_url, parameters, data)
     
-    def delete_post_message_wall(self, thread_id: Optional[int]=None, post_id: Optional[int]=None, username: Optional[str]=None, user_id: Optional[str]=None) -> bool:
+    def delete_post_message_wall(self, thread_id: Optional[int]=None, post_id: Optional[int]=None, username: Optional[str]=None, user_id: Optional[str]=None) -> None:
         if not username and not user_id:
             raise ValueError("Need username, or user_id")
         
@@ -165,9 +165,9 @@ class DiscussionsModeration:
             parameters['method'] = 'deleteReply',
             data['postId'] = str(post_id)
 
-        return self.bot._post(self.bot._wikia_api_url, parameters, data)
+        self.bot._post(self.bot._wikia_api_url, parameters, data)
     
-    def report_post_message_wall(self, post_id: int) -> bool:
+    def report_post_message_wall(self, post_id: int) -> None:
         parameters = {
             'controller': 'Fandom\\MessageWall\\MessageWall',
             'method': 'reportPost',
@@ -180,9 +180,9 @@ class DiscussionsModeration:
             'postId': str(post_id)
         }
 
-        return self.bot._post(self.bot._wikia_api_url, parameters, data)
+        self.bot._post(self.bot._wikia_api_url, parameters, data)
     
-    def lock_post_message_wall(self, thread_id: int, username: Optional[str]=None, user_id: Optional[int]=None) -> bool:
+    def lock_post_message_wall(self, thread_id: int, username: Optional[str]=None, user_id: Optional[int]=None) -> None:
         if not username and not user_id:
             raise ValueError("Need username, or user_id")
 
@@ -199,9 +199,9 @@ class DiscussionsModeration:
             'threadId': str(thread_id)
         }
 
-        return self.bot._post(self.bot._wikia_api_url, parameters, data)
+        self.bot._post(self.bot._wikia_api_url, parameters, data)
     
-    def create_thread_article_comment(self, message: discmess.DiscussionsMessage, pagetitle: str) -> bool:
+    def create_thread_article_comment(self, message: discmess.DiscussionsMessage, pagetitle: str) -> None:
         parameters = {
             'controller': 'ArticleCommentsController',
             'method': 'postNewCommentThread'
@@ -216,9 +216,9 @@ class DiscussionsModeration:
             'attachments': message.build_attachments()
         }
 
-        return self.bot._post(self.bot._wikia_api_url, parameters, data)
+        self.bot._post(self.bot._wikia_api_url, parameters, data)
     
-    def create_reply_article_comment(self, message: discmess.DiscussionsMessage, thread_id: int, pagetitle: str) -> bool:
+    def create_reply_article_comment(self, message: discmess.DiscussionsMessage, thread_id: int, pagetitle: str) -> None:
         parameters = {
             'controller': 'ArticleCommentsController',
             'method': 'postNewCommentReply'
@@ -234,9 +234,9 @@ class DiscussionsModeration:
             'attachments': message.build_raw_attachments()
         }
 
-        return self.bot._post(self.bot._wikia_api_url, parameters, data)
+        self.bot._post(self.bot._wikia_api_url, parameters, data)
     
-    def delete_post_article_comment(self, post_id: int, pagetitle: str) -> bool:
+    def delete_post_article_comment(self, post_id: int, pagetitle: str) -> None:
         parameters = {
             'controller': 'ArticleCommentsController',
             'method': 'deletePost'
@@ -251,9 +251,9 @@ class DiscussionsModeration:
             'namespace': '0'
         }
 
-        return self.bot._post(self.bot._wikia_api_url, parameters, data)
+        self.bot._post(self.bot._wikia_api_url, parameters, data)
     
-    def report_post_article_comments(self, post_id: int, pagetitle: str) -> bool:
+    def report_post_article_comments(self, post_id: int, pagetitle: str) -> None:
         parameters = {
             'controller': 'ArticleCommentsController',
             'method': 'reportPost'
@@ -267,9 +267,9 @@ class DiscussionsModeration:
             'token': self._get_token()
         }
 
-        return self.bot._post(self.bot._wikia_api_url, parameters, data)
+        self.bot._post(self.bot._wikia_api_url, parameters, data)
     
-    def _get_token(self):
+    def _get_token(self) -> str:
         parameters = {
             'action': 'query',
             'meta': 'tokens',
