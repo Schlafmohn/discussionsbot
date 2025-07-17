@@ -1,4 +1,5 @@
 import re
+import json
 
 from . import discbot
 from . import discmess
@@ -30,7 +31,6 @@ class DiscussionsActivity:
         }
 
         data = self.bot._get(self.bot._api_url, parameters)
-        print('получили свежие правки')
         return self._parse_recent_changes(data['query']['recentchanges'])
     
     def get_social_activity(self, since: str, limit: str=100) -> list[dict]:
@@ -42,7 +42,6 @@ class DiscussionsActivity:
         }
 
         data = self.bot._get(self.bot._wikia_api_url, parameters)
-        print('получили социальную активность')
         return self._parse_social_activity(data['_embedded']['doc:posts'])
     
     def get_user_contributions(self, username: Optional[str]=None, user_id: Optional[int]=None, limit: int=10) -> list[dict]:
@@ -104,12 +103,12 @@ class DiscussionsActivity:
                 'content': item['comment'], # комментарий к правке
 
                 'ping_bot': False, # пинга бота априори нет
-                'full_command': ''
+                'full_command': '',
+                'permission': ''
             }
 
             posts.append(post)
         
-        print(posts[:2])
         return posts
     
     def _parse_social_activity(self, content: list[dict]) -> list[dict]:
@@ -118,8 +117,8 @@ class DiscussionsActivity:
 
         for item in content:
             # пропускаем сообщения анонимных участников и самого бота
-            if item['createdBy']['id'] == '0' or item['createdBy']['id'] == str(self.bot._bot_id):
-                continue
+            # if item['createdBy']['id'] == '0' or item['createdBy']['id'] == str(self.bot._bot_id):
+            #     continue
             
             post = {
                 'type': item['_embedded']['thread'][0]['containerType'], # тип сообщения: FORUM, WALL или ARTICLE_COMMENT
@@ -136,23 +135,21 @@ class DiscussionsActivity:
 
                 'ping_bot': False, # см. ниже
                 'full_command': '',
-                'jsonModel': item['jsonModel'],
-                'attachments': item['_embedded']['attachments']
+                'permission': item['createdBy']['badgePermission'],
+
+                'jsonModel': json.loads(item['jsonModel']),
+                'attachments': item['_embedded']['attachments'][0]
             }
 
             # проверка на пинг бота
             normalized = re.sub(r'\s+', ' ', post['content'].strip())
-            pattern = fr'@?{re.escape(self.bot._botname)}\s?,\s?(.*)'
-            match = re.match(pattern, content)
-
-            if match:
+            if normalized.lower().startswith('@bot '):
                 post['ping_bot'] = True
-                post['full_command'] = match.group(1)
+                post['full_command'] = normalized.split(maxsplit=1)[1]
             
             posts.append(post)
         
         # список выводится от старых к новым сообщениям и комментариям
-        print(posts[:2])
         return list(reversed(posts))
     
     def get_user_id(self, username: str) -> int:
@@ -187,7 +184,7 @@ class DiscussionsActivity:
             
             case 'WALL':
                 # в начале forum находится имя владельца, а потом всегда идет стандартная фраза Message Wall (13 символов)
-                url = '{}/wiki/Message_Wall:{}?threadId={}'.format(self.bot._wikilink, message['thread'][:-13].replace(' ', '_'), message['thread_id'])
+                url = '{}/wiki/Message_Wall:{}?threadId={}'.format(self.bot._wikilink, message['forum'][:-13].replace(' ', '_'), message['thread_id'])
                 return url if message['position'] == 1 else '{}#{}'.format(url, message['post_id'])
             
             case 'ARTICLE_COMMENT':

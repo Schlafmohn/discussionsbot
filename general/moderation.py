@@ -20,9 +20,9 @@ class DiscussionsModeration:
             'MIME Type': 'application/json',
             'Encoding': 'utf-8',
             'Request Data': {
-                'body': message.getRawContent(),
-                'jsonModel': message.getJSONModel(),
-                'attachments': message.getAttachments(),
+                'body': message.build_raw_text(),
+                'jsonModel': message.build_raw_model(),
+                'attachments': message.build_raw_attachments(),
                 'forumId': str(forum_id),
                 'siteId': str(self.bot._wiki_id),
                 'title': title,
@@ -44,9 +44,9 @@ class DiscussionsModeration:
             'MIME Type': 'application/json',
             'Encoding': 'utf-8',
             'Request Data': {
-                'body': message.getRawContent(),
-                'jsonModel': message.getJSONModel(),
-                'attachments': message.getAttachments(),
+                'body': message.build_raw_text(),
+                'jsonModel': message.build_raw_model(),
+                'attachments': message.build_raw_attachments(),
                 'siteId': str(self.bot._wiki_id),
                 'source': 'DESKTOP_WEB_FEPO',
                 'threadId': str(thread_id)
@@ -110,9 +110,9 @@ class DiscussionsModeration:
             'token': self._get_token(),
             'wallOwnerId': str(user_id),
             'title': title,
-            'rawContent': message.getRawContent(),
-            'jsonModel': message.getJSONModel(),
-            'attachments': message.getAttachments()
+            'rawContent': message.build_raw_text(),
+            'jsonModel': message.build_raw_model(),
+            'attachments': message.build_raw_attachments()
         }
 
         return self.bot._post(self.bot._wikia_api_url, parameters, data)
@@ -132,9 +132,9 @@ class DiscussionsModeration:
             'token': self._get_token(),
             'wallOwnerId': str(user_id) if user_id is not None else self.activity.get_user_id(username),
             'threadId': str(thread_id),
-            'rawContent': message.getRawContent(),
-            'jsonModel': message.getJSONModel(),
-            'attachments': message.getAttachments()
+            'rawContent': message.build_raw_text(),
+            'jsonModel': message.build_raw_model(),
+            'attachments': message.build_raw_attachments()
         }
 
         return self.bot._post(self.bot._wikia_api_url, parameters, data)
@@ -212,8 +212,8 @@ class DiscussionsModeration:
             'title': pagetitle,
             'namespace': '0',
             'token': self._get_token(),
-            'jsonModel': message.getJSONModel(),
-            'attachments': message.getAttachments()
+            'jsonModel': message.build_raw_model(),
+            'attachments': message.build_attachments()
         }
 
         return self.bot._post(self.bot._wikia_api_url, parameters, data)
@@ -230,8 +230,8 @@ class DiscussionsModeration:
             'title': pagetitle,
             'namespace': '0',
             'token': self._get_token(),
-            'jsonModel': message.getJSONModel(),
-            'attachments': message.getAttachments()
+            'jsonModel': message.build_raw_model(),
+            'attachments': message.build_raw_attachments()
         }
 
         return self.bot._post(self.bot._wikia_api_url, parameters, data)
@@ -276,5 +276,5 @@ class DiscussionsModeration:
             'format': 'json'
         }
 
-        data = self.bot._get(self.bot._wikia_api_url, parameters)
+        data = self.bot._get(self.bot._api_url, parameters)
         return data['query']['tokens']['csrftoken']

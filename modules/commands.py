@@ -5,7 +5,7 @@ from general import discbot
 from general import activity
 from general import moderation
 from general import discmess
-from autogreeting import AutogreetingHandler
+from .autogreeting import AutogreetingHandler
 
 from datetime import datetime
 from typing import Optional
@@ -19,7 +19,7 @@ class CommandHandler:
         self.commands_map = {
             'ping': self._handle_ping,
             'pong': self._handle_ping,
-            'autogreeting': self._handle_autogreeting,
+            'greeting': self._handle_greeting,
             'report on': self._handle_report_enable,
             'report enable': self._handle_report_enable,
             'report off': self._handle_report_disable,
@@ -35,7 +35,7 @@ class CommandHandler:
             return False
         
         with open('languages/{}.json'.format(self.bot._wikilang), 'r') as file:
-            data_reply = json.load(file)
+            data_reply = json.loads(file.read())
         
         reply = discmess.DiscussionsMessage()
         lower_command = message['full_command'].lower()
@@ -67,8 +67,8 @@ class CommandHandler:
         
         return reply
     
-    def _handle_autogreeting(self, message: discmess.DiscussionsMessage, data_reply: dict) -> discmess.DiscussionsMessage:
-        return self.autogreeting._handle_autogreeting(message, data_reply)
+    def _handle_greeting(self, message: discmess.DiscussionsMessage, data_reply: dict) -> Optional[discmess.DiscussionsMessage]:
+        return AutogreetingHandler(self.bot, self.activity, self.moderation)._handle_greeting(message, data_reply)
 
     def _handle_report_enable(self, message: discmess.DiscussionsMessage, data_reply: dict) -> discmess.DiscussionsMessage:
         pass
@@ -87,7 +87,7 @@ class CommandHandler:
         reason = match.group(2)
 
         with open('../configs/warns.json', 'r') as file:
-            data_warns = json.loads(file)
+            data_warns = json.loads(file.read())
         
         if not username in data_warns:
             if not self.activity.get_user_id(username):
@@ -125,7 +125,7 @@ class CommandHandler:
         username = match.group(1).replace('_', ' ')
 
         with open('../configs/warns.json', 'r') as file:
-            data_warns = json.loads(file)
+            data_warns = json.loads(file.read())
         
         if not username in data_warns:
             return # неверная команда
@@ -155,7 +155,7 @@ class CommandHandler:
         list_to_remove = match.group(2)
 
         with open('../configs/warns.json', 'r') as file:
-            data_warns = json.loads(file)
+            data_warns = json.loads(file.read())
         
         if not username in data_warns:
             return # неверная команда

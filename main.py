@@ -4,33 +4,35 @@ import time
 from general import discbot
 from general import activity
 from general import moderation
-from general import discmess
 
-# from modules import commands
-# from modules import autogreeting
+from modules import commands
+from modules import autogreeting
 
 from datetime import datetime
 
 class MyDiscussionsBot:
     def __init__(self):
         with open('configs/config.json', 'r') as file:
-            config = json.loads(file)
+            config = json.loads(file.read())
         
-        self.myBot = discbot.DiscussionsBot(
-            config['username'],
-            config['password'],
-            config['wikilink']
-        )
+        self.bot = discbot.DiscussionsBot(config['username'], config['password'], config['wikilink'])
 
-        self.activity = activity.DiscussionsActivity(self.myBot)
-        self.moderation = moderation.DiscussionsModeration(self.myBot, self.activity)
+        self.activity = activity.DiscussionsActivity(self.bot)
+        self.moderation = moderation.DiscussionsModeration(self.bot, self.activity)
+
+        # проверяем autogreeting enable
+        listNewMessages = self.activity.get_wiki_activity('2025-07-17T00:00:00Z')
+        listNewMessages.reverse()
+        for message in listNewMessages[:1]:
+            commands.CommandHandler(self.bot, self.activity, self.moderation).handle(message)
+            
 
         # self.autogreeting = Autogreeting
         # self.commands = Commands
 
-        self.fileSettings = 'configs/settings.json'
-        with open(self.fileSettings, 'r') as file:
-            self.settings = json.loads(file)
+        # self.fileSettings = 'configs/settings.json'
+        # with open(self.fileSettings, 'r') as file:
+        #     self.settings = json.loads(file.read())
         
         # listNewMessages = self.activity.get_wiki_activity(self.settings['lastCheck'])
         

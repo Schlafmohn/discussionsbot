@@ -7,7 +7,7 @@ class DiscussionsMessage:
     Поддерживает абзацы, жирный, курсив, ссылки, кодовые блоки и вложения (изображения, openGraph, упоминания).
     """
 
-    def __init__(self) -> None:
+    def __init__(self):
         self._model: Dict[str, Any] = {
             "type": "doc",
             "content": []
