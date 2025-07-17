@@ -195,7 +195,7 @@ class AutogreetingHandler:
             data_autogreeting = json.loads(file.read())
         
         if not data_autogreeting['status']:
-            print('G')
+            print('G') # дошел до сюдава, следующий — H
             return self._reply_disabled_module(message, data_reply) # автоприветствия выключены
 
         with open(FILE_AUTOGREETING, 'w') as file:

@@ -20,7 +20,6 @@ class MyDiscussionsBot:
         self.activity = activity.DiscussionsActivity(self.bot)
         self.moderation = moderation.DiscussionsModeration(self.bot, self.activity)
 
-        # проверяем autogreeting enable
         listNewMessages = self.activity.get_wiki_activity('2025-07-17T00:00:00Z')
         listNewMessages.reverse()
         for message in listNewMessages[:1]:

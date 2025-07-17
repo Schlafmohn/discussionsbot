@@ -1,0 +1,7 @@
+{
+    "PING": "ping",
+    "GREETING": "autogreeting",
+    "WARN": "warns",
+    "REPORT": "report",
+    "RANDOM": "random"
+}

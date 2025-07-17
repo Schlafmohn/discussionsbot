@@ -1,11 +1,12 @@
 import time
+import json
 import random
 import requests
 from typing import Optional
 
 class DiscussionsBot:
     def __init__(self, username: str, password: str, wikilink: str):
-        self._session = requests.Session()
+        self._session = requests.Session() # todo: добавить куки
 
         self._headers = {
             'User-Agent': 'Discussions Bot v0.1 14 July, 2025',
@@ -65,7 +66,7 @@ class DiscussionsBot:
     def _get(self, url: str, params: dict) -> dict:
         response = self._session.get(url, params=params, headers=self._headers)
         response.raise_for_status()
-        time.sleep(random.uniform(0.4, 0.7))
+        time.sleep(random.uniform(0.8, 1.3))
         return response.json()
     
     def _post(self, url: str, params: dict, data: Optional[dict]=None) -> bool:
@@ -73,7 +74,7 @@ class DiscussionsBot:
             data = data if data is not None else {}
             response = self._session.post(url, params=params, data=data, headers=self._headers)
             response.raise_for_status()
-            time.sleep(random.uniform(0.8, 1.3))
+            time.sleep(random.uniform(1.6, 2.6))
             return True
         
         except requests.RequestException:
