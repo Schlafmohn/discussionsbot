@@ -16,6 +16,7 @@ class DiscussionsBot:
             'X-Requested-With': 'XMLHttpRequest'
         }
 
+        # нужно бы сделать важные переменные доступными !!
         self._login(username, password) # заходим в аккаунт участника-бота
         self._get_meta_info(wikilink) # получаем метаданные о себе и о вики, на которой будем работать
 
@@ -31,7 +32,6 @@ class DiscussionsBot:
         }
 
         self._session.post(url, data=data, headers=self._headers)
-        print('зашли в аккаунт')
     
     def _get_meta_info(self, wikilink: str) -> None:
         ''' для корректной работы бота обсуждений нужны следующие данные:
@@ -61,7 +61,6 @@ class DiscussionsBot:
 
         # а вот с ID вики намного сложнее, оно находится в `wgCityId`
         self._wiki_id = data['query']['variables'][1]['*']
-        print('получили метаданные')
     
     def _get(self, url: str, params: dict) -> dict:
         response = self._session.get(url, params=params, headers=self._headers)

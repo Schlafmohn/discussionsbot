@@ -137,7 +137,7 @@ class DiscussionsActivity:
                 'full_command': '',
                 'permission': item['createdBy']['badgePermission'],
 
-                'jsonModel': json.loads(item['jsonModel']),
+                'jsonModel': item['jsonModel'],
                 'attachments': item['_embedded']['attachments'][0]
             }
 
@@ -164,12 +164,7 @@ class DiscussionsActivity:
         }
 
         data = self.bot._get(self.bot._api_url, params=parameters)
-        user = data['query']['users'][0]
-
-        if user.get('missing'):
-            return 0
-    
-        return user['userid']
+        return data['query']['users'][0].get('userid', 0)
 
     def get_page_url(self, message: discmess.DiscussionsMessage) -> str:
         ''' формирует ссылку на страницу/сообщение в зависимости от его типа '''

@@ -8,6 +8,7 @@ from general import discmess
 from typing import Optional
 from datetime import datetime, timezone, timedelta
 
+FILE_SETTINGS = 'configs/settings.json'
 FILE_AUTOGREETING = 'configs/autogreeting.json'
 
 class Autogreeting:
@@ -111,26 +112,22 @@ class AutogreetingHandler:
     
     def _handle_greeting(self, message: discmess.DiscussionsMessage, data_reply: dict) -> Optional[discmess.DiscussionsMessage]:
         if not 'sysop' in message['permission']:
-            print('A')
             return
         
         parts = message['full_command'].split(maxsplit=2)
         if len(parts) == 1:
-            print('B')
             return # неверная команда
         
         subcommand = parts[1].lower()
         for command, handler in self.commands_map.items():
             if subcommand.startswith(command):
                 return handler(message, data_reply)
-        
-        print('C')
     
     def _handle_enable(self, message: discmess.DiscussionsMessage, data_reply: dict) -> discmess.DiscussionsMessage:
-        with open(FILE_AUTOGREETING, 'r') as file:
+        with open(FILE_SETTINGS, 'r') as file:
             data_autogreeting = json.loads(file.read())
         
-        with open(FILE_AUTOGREETING, 'w') as file:
+        with open(FILE_SETTINGS, 'w') as file:
             data_autogreeting['status'] = True
             file.write(json.dumps(data_autogreeting))
         
@@ -154,10 +151,10 @@ class AutogreetingHandler:
         return reply
 
     def _handle_disable(self, message: discmess.DiscussionsMessage, data_reply: dict) -> discmess.DiscussionsMessage:
-        with open(FILE_AUTOGREETING, 'r') as file:
+        with open(FILE_SETTINGS, 'r') as file:
             data_autogreeting = json.loads(file.read())
         
-        with open(FILE_AUTOGREETING, 'w') as file:
+        with open(FILE_SETTINGS, 'w') as file:
             data_autogreeting['status'] = False
             file.write(json.dumps(data_autogreeting))
         
@@ -174,7 +171,6 @@ class AutogreetingHandler:
             data_autogreeting = json.loads(file.read())
         
         if not data_autogreeting['status']:
-            print('D')
             self._reply_disabled_module(message, data_reply)
             return self._reply_disabled_module(message, data_reply) # автоприветствия выключены
 
@@ -183,19 +179,16 @@ class AutogreetingHandler:
     def _handle_title(self, message: discmess.DiscussionsMessage, data_reply: dict) -> Optional[discmess.DiscussionsMessage]:
         parts = message['full_command'].split(':', maxsplit=1)
         if len(parts) == 1:
-            print('E')
             return # неверная команда
 
         title = parts[1].strip()
         if title == '':
-            print('F')
             return # неверная команда
 
         with open(FILE_AUTOGREETING, 'r') as file:
             data_autogreeting = json.loads(file.read())
         
         if not data_autogreeting['status']:
-            print('G') # дошел до сюдава, следующий — H
             return self._reply_disabled_module(message, data_reply) # автоприветствия выключены
 
         with open(FILE_AUTOGREETING, 'w') as file:
@@ -223,20 +216,17 @@ class AutogreetingHandler:
     def _handle_content(self, message: discmess.DiscussionsMessage, data_reply: dict) -> Optional[discmess.DiscussionsMessage]:
         parts = message['full_command'].split(':', maxsplit=1)
         if len(parts) == 1:
-            print('H')
             return # неверная команда
 
-        model = message['jsonModel']
+        model = json.loads(message['jsonModel'])
         content = model["content"][1:]
         if content == []:
-            print('I')
             return # неверная команда
         
         with open(FILE_AUTOGREETING, 'r') as file:
             data_autogreeting = json.loads(file.read())
         
         if not data_autogreeting['status']:
-            print('J')
             return self._reply_disabled_module(message, data_reply) # автоприветствия выключены
         
         raw_text = parts[1].strip()

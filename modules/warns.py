@@ -23,7 +23,7 @@ class WarnsHandler:
         }
     
     def _handle_warn(self, message: discmess.DiscussionsMessage, data_reply: dict) -> Optional[discmess.DiscussionsMessage]:
-        if not 'sysop' in message['permission'] or not 'threadmoderator' in message['permission']:
+        if not ('sysop' in message['permission'] or 'threadmoderator' in message['permission']):
             return
         
         parts = message['full_command'].split(maxsplit=2)
@@ -57,17 +57,17 @@ class WarnsHandler:
         
         if not username in data_warns:
             if not self.activity.get_user_id(username):
-                return # неверная команда
+                return self._unknown_user(message, data_reply) # неизвестный участник
             
             data_warns[username] = []
         
         warn = {
             'moderator': message['user'],
             'reason': reason,
-            'timestamp': datetime.strptime(message['timestamp'], '%d.%m.%Y %H:%M:%S')
+            'timestamp': message['timestamp'].strftime('%d.%m.%Y %H:%M:%S')
         }
 
-        data_warns.append(warn)
+        data_warns[username].append(warn)
 
         with open(FILE_WARNS, 'w') as file:
             file.write(json.dumps(data_warns))
@@ -126,7 +126,7 @@ class WarnsHandler:
             return # неверная команда
         
         parts = username_with_numbers.split(':', maxsplit=1)
-        username = parts[0].replace('_', ' ').strip() # re.findall(r'\d+', list_to_remove)]
+        username = parts[0].replace('_', ' ').strip()
 
         with open(FILE_WARNS, 'r') as file:
             data_warns = json.loads(file.read())
@@ -141,10 +141,10 @@ class WarnsHandler:
             indexes_to_remove = [int(i) - 1 for i in re.findall(r'\d+', parts[1])]
             valid_indexes = [i for i in indexes_to_remove if 0 <= i < len(data_warns)]
             for i in sorted(valid_indexes, reverse=True):
-                del data_warns[i]
+                del data_warns[username][i]
         
-        with open(FILE_WARNS, 'r') as file:
-            data_warns = json.loads(file.read())
+        with open(FILE_WARNS, 'w') as file:
+            file.write(json.dumps(data_warns))
         
         reply = discmess.DiscussionsMessage().add_paragraph()
         reply.add_text_to_last(message['user'], strong=True).add_text_to_last(', предупреждение успешно добавлено ⚠️')

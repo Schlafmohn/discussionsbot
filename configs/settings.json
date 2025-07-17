@@ -1,5 +1,7 @@
 {
     "lastCheck": "2025-07-16T00:00:00Z",
     "statusAutogreeting": true,
-    "statusReport": true
+    "statusReport": true,
+    "famousUsers": [],
+    "forbiddenWords": []
 }

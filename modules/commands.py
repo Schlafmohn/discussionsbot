@@ -35,7 +35,7 @@ class CommandHandler:
         with open('languages/{}.json'.format(self.bot._wikilang), 'r') as file:
             data_reply = json.loads(file.read())
         
-        reply = discmess.DiscussionsMessage()
+        reply = None
         lower_command = message['full_command'].lower()
 
         for command, handler in self.commands_map.items():
@@ -44,6 +44,7 @@ class CommandHandler:
                 break
         
         if not reply:
+            print('затестить')
             return False
         
         match message['type']: # todo !!!!!

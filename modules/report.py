@@ -7,6 +7,7 @@ from general import discmess
 
 from typing import Optional
 
+FILE_SETTINGS = 'configs/settings.json'
 FILE_REPORT = 'configs/report.json'
 
 class Report:
@@ -16,14 +17,17 @@ class Report:
         self.moderation = moderation
     
     def handle(self, message: discmess.DiscussionsMessage, data_forbidden_words: list) -> None:
-        content = message['content'].lower()
+        content = message['jsonModel'].lower() # в комментариях к статьям почему-то нет rawContent
         if any(word in content for word in data_forbidden_words):
             self._create_report(message)
     
     def _create_report(self, message: discmess.DiscussionsMessage) -> bool:
-        match message['type']: # todo !!!!! кстати, нужно еще логику в activity пофиксить
-            case 'FORUM' | 'WALL':
+        match message['type']: # todo !!!!! кстати, нужно еще логику в activity пофиксить (c recent changes) 
+            case 'FORUM':
                 self.moderation.report_post_discussion(message['post_id'])
+            
+            case 'WALL':
+                self.moderation.report_post_message_wall(message['post_id'])
             
             case 'ARTICLE_COMMENT':
                 self.moderation.report_post_article_comments(message['post_id'], self.activity.get_page_title(message['forum_id']))
@@ -55,10 +59,10 @@ class ReportHandler:
                 return handler(message, data_reply)
     
     def _handle_enable(self, message: discmess.DiscussionsMessage, data_reply: dict) -> discmess.DiscussionsMessage:
-        with open(FILE_REPORT, 'r') as file:
+        with open(FILE_SETTINGS, 'r') as file:
             data_report = json.loads(file.read())
         
-        with open(FILE_REPORT, 'w') as file:
+        with open(FILE_SETTINGS, 'w') as file:
             data_report['status'] = True
             file.write(json.dumps(data_report))
         
@@ -70,10 +74,10 @@ class ReportHandler:
         return reply
 
     def _handle_disable(self, message: discmess.DiscussionsMessage, data_reply: dict) -> discmess.DiscussionsMessage:
-        with open(FILE_REPORT, 'r') as file:
+        with open(FILE_SETTINGS, 'r') as file:
             data_report = json.loads(file.read())
         
-        with open(FILE_REPORT, 'w') as file:
+        with open(FILE_SETTINGS, 'w') as file:
             data_report['status'] = False
             file.write(json.dumps(data_report))
         
