@@ -116,8 +116,8 @@ class DiscussionsActivity:
 
         for item in content:
             # пропускаем сообщения анонимных участников и самого бота
-            if item['createdBy']['id'] == '0' or item['createdBy']['id'] == str(self.bot.bot_id):
-                continue
+            # if item['createdBy']['id'] == '0' or item['createdBy']['id'] == str(self.bot.bot_id):
+            #     continue
             
             post = {
                 'type': item['_embedded']['thread'][0]['containerType'], # тип сообщения: FORUM, WALL или ARTICLE_COMMENT

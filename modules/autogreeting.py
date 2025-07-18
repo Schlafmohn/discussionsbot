@@ -24,14 +24,12 @@ class Autogreeting:
         if (datetime.now(timezone.utc) - data_user_messages[0]['timestamp']) >= timedelta(hours=24):
             with open(FILE_AUTOGREETING, 'r') as file:
                 data_autogreeting = json.load(file)
-
-            create_autogreeting = self._create_autogreeting(message, data_autogreeting)
-            self.bot.moderation.create_thread_message_wall(create_autogreeting, data_autogreeting['title'], user_id=message['user_id'])
+            self._create_autogreeting(message, data_autogreeting) # присылаем автоприветствие участнику
 
         data_famous_users.append(message['user_id']) # кэшируем его
         return data_famous_users
     
-    def _create_autogreeting(self, message: discmess.DiscussionsMessage, data_autogreeting: dict) -> None:
+    def _create_autogreeting(self, message: discmess.DiscussionsMessage, data_autogreeting: dict) -> discmess.DiscussionsMessage:
         replacements = {
             '$USERNAME': {"text": message['user']},
             '$WIKINAME': {"text": self.bot.core.wikiname},
@@ -39,53 +37,9 @@ class Autogreeting:
         }
 
         # заменяем переменные $USERNAME, $WIKI и $PAGETITLE в jsonModel и rawContent, сохраняя форматирование и добавляя ссылки
-        data_autogreeting = self._process_autogreeting(data_autogreeting, replacements)
-        create_autogreeting = discmess.DiscussionsMessage.from_existing(data_autogreeting["rawContent"], data_autogreeting["jsonModel"], data_autogreeting["attachments"])
+        modified_template = discmess.DiscussionsMessage.replace_in_message(data_autogreeting["rawContent"], data_autogreeting["jsonModel"], data_autogreeting["attachments"], replacements)
+        create_autogreeting = discmess.DiscussionsMessage.from_dict(modified_template)
         self.bot.moderation.create_thread_message_wall(create_autogreeting, data_autogreeting['title'], user_id=message['user_id'])
-
-    def _process_autogreeting(self, autogreeting: dict, replacements: dict) -> dict:
-        autogreeting["jsonModel"] = Autogreeting._replace_in_node(autogreeting["jsonModel"], replacements)[0]
-
-        for var, rep in replacements.items():
-            autogreeting["rawContent"] = autogreeting["rawContent"].replace(var, rep["text"])
-        return autogreeting
-    
-    @staticmethod
-    def _replace_in_node(node: dict, replacements: dict) -> list:
-        # сюда лучше не смотреть, это смерть мигом
-        if node["type"] == "text":
-            text = node["text"]
-
-            for var, rep in replacements.items():
-                if var in text:
-                    before, _, after = text.partition(var)
-                    nodes = []
-
-                    if before:
-                        nodes.append({"type": "text", "text": before, "marks": node.get("marks", [])})
-                    new_node = {"type": "text", "text": rep["text"]}
-
-                    if rep.get("link"):
-                        new_node["marks"] = node.get("marks", []) + [{"type": "link", "attrs": {"href": rep["link"]}}]
-                    else:
-                        new_node["marks"] = node.get("marks", [])
-
-                    nodes.append(new_node)
-                    if after:
-                        nodes += Autogreeting._replace_in_node({"type": "text", "text": after, "marks": node.get("marks", [])}, replacements)
-
-                    return nodes
-            return [node]
-
-        if "content" in node:
-            node["content"] = [
-                subnode
-                for item in node["content"]
-                for subnode in Autogreeting._replace_in_node(item, replacements)
-            ]
-
-            return [node]
-        return [node]
 
 class AutogreetingHandler:
     def __init__(self, bot: discbot.DiscussionsBot):
@@ -123,24 +77,12 @@ class AutogreetingHandler:
             settings['statusAutogreeting'] = True
             json.dump(settings, file, indent=2)
         
-        reply = discmess.DiscussionsMessage().add_paragraph()
-        reply.add_text_to_last(message['user'], strong=True).add_text_to_last(', автоприветствия успешно включены ✅')
-        reply.add_paragraph('Теперь каждому новому участнику будут автоматически отправляться приветственное сообщение! Чтобы сделать его индивидуальнее, вы можете настроить:')
-        # reply.addBulletList('autogreeting title: [новый заголовок]', strong=True).addText(' — изменить заголовок')
-        # reply.addListItem('autogreeting message: [новое сообщение]', strong=True).addText(' — изменить текст приветствия')
+        replacements = {
+            '$USERNOTIFICATION': {"mention_id": str(message['user_id']), "mention_text": message['user']}
+        }
 
-        reply.add_paragraph('📌 В тексте сообщения можно использовать следующие переменные:')
-        # reply.addBulletList('$USERNAME', strong=True).addText(' — имя нового участника')
-        # reply.addListItem('$WIKINAME', strong=True).addText(' — название вашей вики')
-        # reply.addListItem('$PAGENAME', strong=True).addText(' — название страницы или темы, где участник впервые проявил активность')
-
-        reply.add_paragraph('🔧 Текущие настройки автоприветствия:')
-        reply.add_paragraph('Заголовок:', strong=True).add_text_to_last(data_autogreeting['title'])
-        # reply.add_paragraph('Сообщение:', strong=True).add_text_to_last(data_autogreeting['jsonModel'])
-
-        reply.add_paragraph('📚 Полный список команд: ').add_text_to_last('команды бота', link='https://discbot.fandom.com/ru/wiki/Команды_бота')
-        reply.add_text_to_last('. Не забудьте в начале упомянуть мое имя {} через запятую!'.format(self.bot.core.botname))
-        return reply
+        modified_template = discmess.DiscussionsMessage.replace_in_message_from_dict(data_reply['GREETING_ENABLE'], replacements)
+        return discmess.DiscussionsMessage.from_dict(modified_template)
 
     def _handle_disable(self, message: discmess.DiscussionsMessage, data_reply: dict) -> discmess.DiscussionsMessage:
         with open(FILE_SETTINGS, 'r') as file:
@@ -150,15 +92,15 @@ class AutogreetingHandler:
             settings['statusAutogreeting'] = False
             json.dump(settings, file, indent=2)
         
-        reply = discmess.DiscussionsMessage().add_paragraph()
-        reply.add_text_to_last(message['user'], strong=True).add_text_to_last(', автоприветствие новых участников выключено. Я больше не буду автоматически приветствовать пользователей при их первом действии. Если вы захотите снова включить эту функцию, используйте команду: ')
-        reply.add_text_to_last('autogreeting enable', strong=True).add_text_to_last('.')
+        replacements = {
+            '$USERNOTIFICATION': {"mention_id": str(message['user_id']), "mention_text": message['user']},
+            '$BOTOWNER': {"text": 'Зубенко Михаил Петрович', "link": '{}/Стена_обсуждения:Зубенко_Михаил_Петрович'.format(self.bot.core.wikilink)}
+        }
 
-        reply.add_paragraph('📚 Полный список команд: ').add_text_to_last('команды бота', link='https://discbot.fandom.com/ru/wiki/Команды_бота')
-        reply.add_text_to_last('. Не забудьте в начале упомянуть мое имя {} через запятую!'.format(self.bot.core.botname))
-        return reply
+        modified_template = discmess.DiscussionsMessage.replace_in_message_from_dict(data_reply['GREETING_DISABLE'], replacements)
+        return discmess.DiscussionsMessage.from_dict(modified_template)
     
-    def _handle_test(self, message: discmess.DiscussionsMessage, data_reply: dict) -> None:
+    def _handle_test(self, message: discmess.DiscussionsMessage, data_reply: dict) -> Optional[None]:
         with open(FILE_SETTINGS, 'r') as file:
             settings = json.load(file)
             if not settings['statusAutogreeting']:
@@ -167,7 +109,7 @@ class AutogreetingHandler:
         with open(FILE_AUTOGREETING, 'r') as file:
             data_autogreeting = json.load(file)
 
-        Autogreeting(self.bot, self.activity, self.moderation)._create_autogreeting(message, data_autogreeting)
+        Autogreeting(self.bot)._create_autogreeting(message, data_autogreeting)
 
     def _handle_title(self, message: discmess.DiscussionsMessage, data_reply: dict) -> Optional[discmess.DiscussionsMessage]:
         parts = message['full_command'].split(':', maxsplit=1)
@@ -190,23 +132,13 @@ class AutogreetingHandler:
             data_autogreeting['title'] = title
             json.dump(data_autogreeting, file, indent=2)
 
-        reply = discmess.DiscussionsMessage().add_paragraph()
-        reply.add_text_to_last(message['user'], strong=True).add_text_to_last(', заголовок автоприветствия успешно обновлен 🎉')
-        reply.add_paragraph('Чтобы изменить содержание самого автоматического сообщения новых участников, воспользуйтесь командой: ')
-        reply.add_text_to_last('autogreeting message: [новое сообщение]', strong=True).add_text_to_last('.')
+        replacements = {
+            '$USERNOTIFICATION': {"mention_id": str(message['user_id']), "mention_text": message['user']},
+            '$GREETINGTITLE': {"text": title}
+        }
 
-        reply.add_paragraph('📌 В тексте приветствия вы можете использовать специальные переменные:')
-        # reply.addBulletList('$USERNAME', strong=True).add_text_to_last(' — имя нового участника')
-        # reply.addListItem('$WIKINAME', strong=True).add_text_to_last(' — название вашей вики')
-        # reply.addListItem('$PAGENAME', strong=True).add_text_to_last(' — название страницы или темы, где участник впервые проявил активность')
-
-        reply.add_paragraph('🔧 Текущие настройки автоприветствия:')
-        reply.add_paragraph('Заголовок:', strong=True).add_text_to_last(data_autogreeting['title'])
-        # reply.add_paragraph('Сообщение:', strong=True).add_text_to_last(data_autogreeting['jsonModel'])
-
-        reply.add_paragraph('📚 Полный список команд: ').add_text_to_last('команды бота', link='https://discbot.fandom.com/ru/wiki/Команды_бота')
-        reply.add_text_to_last('. Не забудьте в начале упомянуть мое имя {} через запятую!'.format(self.bot.core.botname))
-        return reply
+        modified_template = discmess.DiscussionsMessage.replace_in_message_from_dict(data_reply['GREETING_TITLE'], replacements)
+        return discmess.DiscussionsMessage.from_dict(modified_template)
 
     def _handle_content(self, message: discmess.DiscussionsMessage, data_reply: dict) -> Optional[discmess.DiscussionsMessage]:
         parts = message['full_command'].split(':', maxsplit=1)
@@ -237,17 +169,17 @@ class AutogreetingHandler:
             data_autogreeting["attachments"] = message['attachments']
             json.dump(data_autogreeting, file, indent=2)
         
-        reply = discmess.DiscussionsMessage().add_paragraph()
-        reply.add_text_to_last(message['user'], strong=True).add_text_to_last(', заголовок автоприветствия успешно обновлен 🎉')
-        reply.add_paragraph('📚 Полный список команд: ').add_text_to_last('команды бота', link='https://discbot.fandom.com/ru/wiki/Команды_бота')
-        reply.add_text_to_last('. Не забудьте в начале упомянуть мое имя {} через запятую!'.format(self.bot.core.botname))
-        return reply
+        replacements = {
+            '$USERNOTIFICATION': {"mention_id": str(message['user_id']), "mention_text": message['user']}
+        }
+
+        modified_template = discmess.DiscussionsMessage.replace_in_message_from_dict(data_reply['GREETING_CONTENT'], replacements)
+        return discmess.DiscussionsMessage.from_dict(modified_template)
     
     def _reply_disabled_module(self, message: discmess.DiscussionsMessage, data_reply: dict) -> discmess.DiscussionsMessage:
-        reply = discmess.DiscussionsMessage().add_paragraph()
-        reply.add_text_to_last(message['user'], strong=True).add_text_to_last(', автоприветствия в данный момент отключены 🔕')
-        reply.add_paragraph('Чтобы включить автоматические приветствия новых участников, используйте команду: ')
-        reply.add_text_to_last('autogreeting enable', strong=True)
-        reply.add_paragraph('📚 Полный список команд: ').add_text_to_last('команды бота', link='https://discbot.fandom.com/ru/wiki/Команды_бота')
-        reply.add_text_to_last('. Не забудьте в начале упомянуть мое имя {} через запятую!'.format(self.bot.core.botname))
-        return reply
+        replacements = { # todo: добавить текст о связи с владельцем бота
+            '$USERNOTIFICATION': {"mention_id": str(message['user_id']), "mention_text": message['user']}
+        }
+
+        modified_template = discmess.DiscussionsMessage.replace_in_message_from_dict(data_reply['GREETING_ERROR'], replacements)
+        return discmess.DiscussionsMessage.from_dict(modified_template)

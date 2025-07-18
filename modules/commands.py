@@ -38,7 +38,6 @@ class CommandHandler:
                 break
         
         if not reply:
-            print('затестить')
             return
         
         match message['type']: # todo: см. moderation
@@ -52,12 +51,13 @@ class CommandHandler:
                 self.bot.moderation.create_reply_article_comment(reply, message['thread_id'], self.bot.activity.get_page_title(message['forum_id']))
     
     def _handle_ping(self, message: discmess.DiscussionsMessage, data_reply: dict) -> discmess.DiscussionsMessage:
-        reply = discmess.DiscussionsMessage().add_paragraph()
-        reply.add_text_to_last(message['user'], strong=True).add_text_to_last(', привет! Я, ').add_text_to_last(self.bot.core.botname, strong=True)
-        reply.add_text_to_last(', – бот обсуждений, написанный абсолютно с нуля участником Зубенко Михаил Петрович. Если у тебя будут какие-то вопросы, лучше обращайся к нему. Держи даже ')
-        reply.add_text_to_last('ссылку', link='https://warriors-cats.fandom.com/ru/wiki/Стена_обсуждения:Зубенко_Михаил_Петрович')
-        reply.add_text_to_last('. Мне нет никакого смысла писать, я не обладаю даже встроенной функцией от Chat GPT 🏓')
-        return reply
+        replacements = {
+            '$USERNOTIFICATION': {"mention_id": str(message['user_id']), "mention_text": message['user']},
+            '$BOTOWNER': {"text": 'Зубенко Михаил Петрович', "link": '{}/Стена_обсуждения:Зубенко_Михаил_Петрович'.format(self.bot.core.wikilink)}
+        }
+
+        modified_template = discmess.DiscussionsMessage.replace_in_message_from_dict(data_reply['PING'], replacements)
+        return discmess.DiscussionsMessage.from_dict(modified_template)
     
     def _handle_greeting(self, message: discmess.DiscussionsMessage, data_reply: dict) -> Optional[discmess.DiscussionsMessage]:
         return AutogreetingHandler(self.bot)._handle_greeting(message, data_reply)

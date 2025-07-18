@@ -72,10 +72,10 @@ class DiscussionsCore:
     
     def _get(self, url: str, params: dict) -> dict:
         response = self._session.get(url, params=params, headers=self._headers)
-        print('[{}] [{}] GET Request'.format(self._get_time_now(), response.status_code))
+        print('[{}] [{}] GET Request {}'.format(self._get_time_now(), response.status_code, response.url))
 
         self.__cookie_jar.save(ignore_discard=True)
-        time.sleep(random.uniform(0.8, 1.3))
+        time.sleep(random.uniform(1.2, 2.0))
         return response.json()
     
     def _post(self, url: str, params: dict, data: Optional[dict]=None) -> None:
@@ -84,7 +84,7 @@ class DiscussionsCore:
         print('[{}] [{}] POST Request'.format(self._get_time_now(), response.status_code))
 
         self.__cookie_jar.save(ignore_discard=True)
-        time.sleep(random.uniform(1.6, 2.6))
+        time.sleep(random.uniform(2.4, 3.9))
     
     def _get_time_now(self):
         return datetime.now(timezone.utc).isoformat()

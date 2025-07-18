@@ -1,4 +1,5 @@
 import json
+import copy
 from typing import Optional, List, Dict, Any
 
 class DiscussionsMessage:
@@ -28,6 +29,86 @@ class DiscussionsMessage:
         message._model = model
         message._attachments = attachments
         return message
+    
+    @classmethod
+    def from_dict(cls, data: dict) -> 'DiscussionsMessage':
+        message = cls()
+        message._raw_text = data.get("rawContent", "")
+        message._model = data.get("jsonModel", {})
+        message._attachments = data.get("attachments", {})
+        return message
+    
+    @staticmethod
+    def replace_in_message(raw_text: str, model: dict, attachments: dict, replacements: dict) -> dict:
+        # делаем глубокую копию, чтобы не испортить оригинал
+        model_copy = copy.deepcopy(model)
+        attachments_copy = copy.deepcopy(attachments)
+        model = DiscussionsMessage._replace_in_node(model_copy, replacements)[0]
+
+        for var, rep in replacements.items():
+            if "mention_id" in rep and "mention_text" in rep:
+                # добавляем упоминание в attachments, если есть
+                raw_text = raw_text.replace(var, f"@{rep['mention_text']}")
+                attachments_copy.setdefault("atMentions", []).append({"id": rep["mention_id"]})
+            else:
+                # заменяем переменные в rawContent
+                raw_text = raw_text.replace(var, rep.get("text", ""))
+
+        return {"rawContent": raw_text, "jsonModel": model, "attachments": attachments_copy}
+    
+    @staticmethod
+    def replace_in_message_from_dict(data: dict, replacements: dict) -> dict:
+        return DiscussionsMessage.replace_in_message(data.get("rawContent", ""), data.get("jsonModel", {}), data.get("attachments", {}), replacements)
+    
+    @staticmethod
+    def _replace_in_node(node: dict, replacements: dict) -> list:
+        # сюда лучше не смотреть, это смерть мигом
+        if node["type"] == "text":
+            text = node["text"]
+
+            for var, rep in replacements.items():
+                if var in text:
+                    before, _, after = text.partition(var)
+                    nodes = []
+
+                    if before:
+                        nodes.append({"type": "text", "text": before, "marks": node.get("marks", [])})
+                    
+                    # добавляем поддержку упоминания участников
+                    if "mention_id" in rep and "mention_text" in rep:
+                        nodes.append({
+                            "type": "text",
+                            "text": f"@{rep['mention_text']}",
+                            "marks": [{"type": "mention", "attrs": {"userId": rep["mention_id"], "userName": rep["mention_text"], "href": None}}]
+                        })
+
+                    else:
+                        # обычная текстовая замена
+                        new_node = {"type": "text", "text": rep["text"]}
+                        if rep.get("link"):
+                            new_node["marks"] = node.get("marks", []) + [{"type": "link", "attrs": {"href": rep["link"]}}]
+                        else:
+                            new_node["marks"] = node.get("marks", [])
+                        nodes.append(new_node)
+
+                    if after:
+                        nodes += DiscussionsMessage._replace_in_node({"type": "text", "text": after, "marks": node.get("marks", [])}, replacements)
+
+                    return nodes
+            
+            # если ни одна переменная не найдена - вернуть узел как есть
+            return [node]
+
+        # если есть вложенный контент, рекурсивно пройтись по нему
+        if "content" in node:
+            node["content"] = [
+                subnode
+                for item in node["content"]
+                for subnode in DiscussionsMessage._replace_in_node(item, replacements)
+            ]
+
+            return [node]
+        return [node]
 
     def add_paragraph(self, text: Optional[str]=None, strong: bool=False, italic: bool=False, link: Optional[str]=None, marks: Optional[List[Dict[str, Any]]]=None) -> 'DiscussionsMessage':
         paragraph = {
@@ -79,7 +160,7 @@ class DiscussionsMessage:
         self._raw_text = text + self._raw_text
         return self
 
-    def add_mention(self, user_id: str, username: str) -> 'DiscussionsMessage':
+    def add_mention(self, user_id: str, username: str) -> 'DiscussionsMessage': # todo: работает неправильно для Фэндома
         mention = {
             "type": "mention",
             "attrs": {
