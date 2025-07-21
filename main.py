@@ -24,6 +24,9 @@ class MyDiscussionsBot:
         self.report = report.Report(self.bot)
         self.commands = commands.CommandHandler(self.bot)
 
+        list_messages = self.bot.activity.get_social_activity(self.settings['lastCheck'])
+        self.commands.handle(list_messages[-1])
+
         self.running = True
     
     def run(self):
@@ -59,4 +62,4 @@ if __name__ == '__main__':
 
     signal.signal(signal.SIGINT, handle_exit)
     signal.signal(signal.SIGTERM, handle_exit)
-    bot.run()
+    # bot.run()

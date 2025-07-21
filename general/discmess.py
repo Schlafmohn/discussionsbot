@@ -82,7 +82,7 @@ class DiscussionsMessage:
                             "marks": [{"type": "mention", "attrs": {"userId": rep["mention_id"], "userName": rep["mention_text"], "href": None}}]
                         })
 
-                    else:
+                    elif "text" in rep:
                         # обычная текстовая замена
                         new_node = {"type": "text", "text": rep["text"]}
                         if rep.get("link"):
@@ -90,6 +90,9 @@ class DiscussionsMessage:
                         else:
                             new_node["marks"] = node.get("marks", [])
                         nodes.append(new_node)
+                    
+                    else:
+                        raise ValueError(f"Need mention_id and mention_text or text in replacements: {rep}")
 
                     if after:
                         nodes += DiscussionsMessage._replace_in_node({"type": "text", "text": after, "marks": node.get("marks", [])}, replacements)

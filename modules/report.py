@@ -38,13 +38,16 @@ class ReportHandler:
             'disable': self._handle_disable
         }
     
-    def _handle_report(self, message: discmess.DiscussionsMessage, data_reply: dict) -> Optional[discmess.DiscussionsMessage]:
+    def _handle_report(self, message: discmess.DiscussionsMessage) -> Optional[discmess.DiscussionsMessage]:
         if not 'sysop' in message['permission']:
             return
         
         parts = message['full_command'].split(maxsplit=2)
         if len(parts) == 1:
             return # неверная команда
+        
+        with open('languages/{}/report.json'.format(self.bot.core.wikilang), 'r') as file:
+            data_reply = json.load(file)
         
         subcommand = parts[1].lower()
         for command, handler in self.commands_map.items():

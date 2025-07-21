@@ -56,13 +56,16 @@ class AutogreetingHandler:
             'message': self._handle_content
         }
     
-    def _handle_greeting(self, message: discmess.DiscussionsMessage, data_reply: dict) -> Optional[discmess.DiscussionsMessage]:
+    def _handle_greeting(self, message: discmess.DiscussionsMessage) -> Optional[discmess.DiscussionsMessage]:
         if not 'sysop' in message['permission']:
             return
         
         parts = message['full_command'].split(maxsplit=2)
         if len(parts) == 1:
             return # неверная команда
+        
+        with open('languages/{}/autogreeting.json'.format(self.bot.core.wikilang), 'r') as file:
+            data_reply = json.load(file)
         
         subcommand = parts[1].lower()
         for command, handler in self.commands_map.items():
@@ -177,8 +180,9 @@ class AutogreetingHandler:
         return discmess.DiscussionsMessage.from_dict(modified_template)
     
     def _reply_disabled_module(self, message: discmess.DiscussionsMessage, data_reply: dict) -> discmess.DiscussionsMessage:
-        replacements = { # todo: добавить текст о связи с владельцем бота
-            '$USERNOTIFICATION': {"mention_id": str(message['user_id']), "mention_text": message['user']}
+        replacements = {
+            '$USERNOTIFICATION': {"mention_id": str(message['user_id']), "mention_text": message['user']},
+            '$BOTOWNER': {"text": 'Зубенко Михаил Петрович', "link": '{}/Стена_обсуждения:Зубенко_Михаил_Петрович'.format(self.bot.core.wikilink)}
         }
 
         modified_template = discmess.DiscussionsMessage.replace_in_message_from_dict(data_reply['GREETING_ERROR'], replacements)

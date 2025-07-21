@@ -19,7 +19,7 @@ class WarnsHandler:
             'delete': self._handle_delete
         }
     
-    def _handle_warn(self, message: discmess.DiscussionsMessage, data_reply: dict) -> Optional[discmess.DiscussionsMessage]:
+    def _handle_warn(self, message: discmess.DiscussionsMessage) -> Optional[discmess.DiscussionsMessage]:
         if not ('sysop' in message['permission'] or 'threadmoderator' in message['permission']):
             return
         
@@ -27,10 +27,66 @@ class WarnsHandler:
         if len(parts) == 1:
             return # неверная команда
         
+        with open('languages/{}/warns.json'.format(self.bot.core.wikilang), 'r') as file:
+            data_reply = json.load(file)
+        
         subcommand = parts[1].lower()
         for command, handler in self.commands_map.items():
             if subcommand.startswith(command):
                 return handler(message, data_reply)
+    
+    @staticmethod # todo: построить внутренний «рендерер» для таких шаблонов — вроде как мини-библиотеку и переместить это куда-нибудь
+    def build_warn_paragraph(index: int, moderator: str, reason: str, timestamp: str):
+        # todo: добавить, что нарушений нет
+        return {"type": "paragraph", "content": [{"type": "text", "text": f"{index}. [{timestamp}, {moderator}] — {reason}"}]}
+    
+    @staticmethod
+    def inject_paragraphs(template: dict, marker_text: str, new_paragraphs: list) -> dict:
+        """
+        заменяет параграф с текстом-маркером в jsonModel и rawContent на список новых параграфов
+        """
+
+        # копируем список параграфов, чтобы избежать нежелательных мутаций
+        content = template["jsonModel"]["content"].copy()
+
+        # ищем индекс абзаца, содержащего текстовый узел с маркером
+        marker_index = next((
+            i for i, block in enumerate(content)
+            if block.get("type") == "paragraph" and any(item.get("type") == "text" and item.get("text", "").strip() == marker_text
+                for item in block.get("content", []))
+            ),
+            None
+        )
+
+        # если нашли нужный абзац — заменим его на новые
+        if marker_index is not None:
+            content = content[:marker_index] + new_paragraphs + content[marker_index + 1:]
+            template["jsonModel"]["content"] = content
+
+        # сгенерируем замену в rawContent на основе текстов из новых параграфов
+        lines = []
+        for para in new_paragraphs:
+            if para.get("type") != "paragraph":
+                continue
+
+            texts = [
+                node.get("text", "")
+                for node in para.get("content", [])
+                if node.get("type") == "text"
+            ]
+
+            line = "".join(texts).strip()
+
+            if line:
+                lines.append(line)
+
+        raw_replacement = " ".join(lines)
+
+        # заменим в rawContent
+        if "rawContent" in template and isinstance(template["rawContent"], str):
+            template["rawContent"] = template["rawContent"].replace(marker_text, raw_replacement)
+
+        return template
     
     def _handle_add(self, message: discmess.DiscussionsMessage, data_reply: dict) -> Optional[discmess.DiscussionsMessage]:
         parts = message['full_command'].split('@', maxsplit=1)
@@ -51,11 +107,12 @@ class WarnsHandler:
         
         with open(FILE_WARNS, 'r') as file:
             data_warns = json.load(file)
+
+        user_id = self.bot.activity.get_user_id(username)
+        if not user_id:
+            return self._unknown_user(message, data_reply) # неизвестный участник
         
         if not username in data_warns:
-            if not self.bot.activity.get_user_id(username):
-                return self._unknown_user(message, data_reply) # неизвестный участник
-            
             data_warns[username] = []
         
         warn = {
@@ -69,20 +126,18 @@ class WarnsHandler:
         with open(FILE_WARNS, 'w') as file:
             json.dump(data_warns, file, indent=2)
         
-        reply = discmess.DiscussionsMessage().add_paragraph()
-        reply.add_text_to_last(message['user'], strong=True).add_text_to_last(', предупреждение успешно добавлено ⚠️')
-        reply.add_paragraph('Чтобы удалить одно или несколько предупреждений, используйте команду в формате: ')
-        reply.add_text_to_last('warn delete @username: 1 2', strong=True).add_text_to_last(' — где числа соответствуют номерам предупреждений, которые нужно удалить.')
+        replacements = {
+            '$MODERATORNOTIFICATION': {"mention_id": str(message['user_id']), "mention_text": message['user']},
+            '$USERNOTIFICATION': {"mention_id": user_id, "mention_text": username},
+            '$USERNAME': {"text": username}
+        }
 
-        reply.add_paragraph('📋 Текущий список предупреждений для участника ' + username + ':')
-        # reply.addBulletList()
+        # заменяем переменную $LISTWARNS на список предупреждений новых параграфов
+        warn_paragraphs = [WarnsHandler.build_warn_paragraph(i + 1, w['timestamp'], w['moderator'], w['reason']) for i, w in enumerate(data_warns[username])]
+        updated_template = WarnsHandler.inject_paragraphs(data_reply['WARN_ADD'], '$LISTWARNS', warn_paragraphs)
 
-        # for warn in data_warns[username]:
-        #     reply.addListItem(data_warns[username]['timestamp'] + ' от ' + data_warns[username]['moderator'] + '. Причина: ' + data_warns[username]['reason'])
-
-        reply.add_paragraph('📚 Полный список команд: ').add_text_to_last('команды бота', link='https://discbot.fandom.com/ru/wiki/Команды_бота')
-        reply.add_text_to_last('. Не забудьте в начале упомянуть мое имя {} через запятую!'.format(self.bot.core.botname))
-        return reply
+        modified_template = discmess.DiscussionsMessage.replace_in_message_from_dict(updated_template, replacements)
+        return discmess.DiscussionsMessage.from_dict(modified_template)
 
     def _handle_list(self, message: discmess.DiscussionsMessage, data_reply: dict) -> Optional[discmess.DiscussionsMessage]:
         parts = message['full_command'].split('@', maxsplit=1)
@@ -98,20 +153,18 @@ class WarnsHandler:
         
         if not username in data_warns:
             return self._unknown_user(message, data_reply) # неизвестный участник
+        
+        replacements = {
+            '$MODERATORNOTIFICATION': {"mention_id": str(message['user_id']), "mention_text": message['user']},
+            '$USERNAME': {"text": username}
+        }
 
-        reply = discmess.DiscussionsMessage().add_paragraph()
-        reply.add_text_to_last(message['user'], strong=True).add_text_to_last(', список активных предупреждений, выданных этому участнику ⚠️')
-        # reply.addBulletList()
+        # заменяем переменную $LISTWARNS на список предупреждений новых параграфов
+        warn_paragraphs = [WarnsHandler.build_warn_paragraph(i + 1, w['timestamp'], w['moderator'], w['reason']) for i, w in enumerate(data_warns[username])]
+        updated_template = WarnsHandler.inject_paragraphs(data_reply['WARN_LIST'], '$LISTWARNS', warn_paragraphs)
 
-        # for warn in data_warns[username]:
-        #     reply.addListItem(data_warns[username]['timestamp'] + ' от ' + data_warns[username]['moderator'] + '. Причина: ' + data_warns[username]['reason'])
-
-        reply.add_paragraph('Чтобы удалить одно или несколько предупреждений, используйте команду в формате: ')
-        reply.add_text_to_last('warn delete @username: 1 2', strong=True).add_text_to_last(' — где числа соответствуют номерам предупреждений, которые нужно удалить.')
-
-        reply.add_paragraph('📚 Полный список команд: ').add_text_to_last('команды бота', link='https://discbot.fandom.com/ru/wiki/Команды_бота')
-        reply.add_text_to_last('. Не забудьте в начале упомянуть мое имя {} через запятую!'.format(self.bot.core.botname))
-        return reply
+        modified_template = discmess.DiscussionsMessage.replace_in_message_from_dict(updated_template, replacements)
+        return discmess.DiscussionsMessage.from_dict(modified_template)
 
     def _handle_delete(self, message: discmess.DiscussionsMessage, data_reply: dict) -> Optional[discmess.DiscussionsMessage]:
         parts = message['full_command'].split('@', maxsplit=1)
@@ -137,31 +190,36 @@ class WarnsHandler:
         else:
             indexes_to_remove = [int(i) - 1 for i in re.findall(r'\d+', parts[1])]
             valid_indexes = [i for i in indexes_to_remove if 0 <= i < len(data_warns[username])]
+
+            if not valid_indexes:
+                return self._invalid_indexes(message, data_reply)
+            
             for i in sorted(valid_indexes, reverse=True):
                 del data_warns[username][i]
         
         with open(FILE_WARNS, 'w') as file:
             json.dump(data_warns, file, indent=2)
         
-        reply = discmess.DiscussionsMessage().add_paragraph()
-        reply.add_text_to_last(message['user'], strong=True).add_text_to_last(', предупреждение успешно добавлено ⚠️')
-        reply.add_paragraph('Чтобы удалить одно или несколько предупреждений, используйте команду в формате: ')
-        reply.add_text_to_last('warn delete @username: 1 2', strong=True).add_text_to_last(' — где числа соответствуют номерам предупреждений, которые нужно удалить.')
+        replacements = {
+            '$MODERATORNOTIFICATION': {"mention_id": str(message['user_id']), "mention_text": message['user']},
+            '$USERNAME': {"text": username}
+        }
 
-        reply.add_paragraph('📋 Текущий список предупреждений для участника ' + username + ':')
-        # reply.addBulletList()
+        # заменяем переменную $LISTWARNS на список предупреждений новых параграфов
+        warn_paragraphs = [WarnsHandler.build_warn_paragraph(i + 1, w['timestamp'], w['moderator'], w['reason']) for i, w in enumerate(data_warns[username])]
+        updated_template = WarnsHandler.inject_paragraphs(data_reply['WARN_DELETE'], '$LISTWARNS', warn_paragraphs)
 
-        # for warn in data_warns[username]:
-        #     reply.addListItem(data_warns[username]['timestamp'] + ' от ' + data_warns[username]['moderator'] + '. Причина: ' + data_warns[username]['reason'])
-
-        reply.add_paragraph('📚 Полный список команд: ').add_text_to_last('команды бота', link='https://discbot.fandom.com/ru/wiki/Команды_бота')
-        reply.add_text_to_last('. Не забудьте в начале упомянуть мое имя {} через запятую!'.format(self.bot.core.botname))
-        return reply
+        modified_template = discmess.DiscussionsMessage.replace_in_message_from_dict(updated_template, replacements)
+        return discmess.DiscussionsMessage.from_dict(modified_template)
 
     def _unknown_user(self, message: discmess.DiscussionsMessage, data_reply: dict) -> discmess.DiscussionsMessage:
-        reply = discmess.DiscussionsMessage().add_paragraph()
-        reply.add_text_to_last(message['user'], strong=True).add_text_to_last(', не удалось найти участника с таким именем ❗')
-        reply.add_paragraph('Проверьте, что вы правильно указали имя — оно должно соответствовать имени пользователя на вики. Если имя состоит из нескольких слов, не забудьте про пробелы или символ @.')
-        reply.add_paragraph('📚 Полный список команд: ').add_text_to_last('команды бота', link='https://discbot.fandom.com/ru/wiki/Команды_бота')
-        reply.add_text_to_last('. Не забудьте в начале упомянуть мое имя {} через запятую!'.format(self.bot.core.botname))
-        return reply
+        replacements = {
+            '$MODERATORNOTIFICATION': {"mention_id": str(message['user_id']), "mention_text": message['user']},
+            '$BOTOWNER': {"text": 'Зубенко Михаил Петрович', "link": '{}/Стена_обсуждения:Зубенко_Михаил_Петрович'.format(self.bot.core.wikilink)}
+        }
+
+        modified_template = discmess.DiscussionsMessage.replace_in_message_from_dict(data_reply['WARN_ERROR'], replacements)
+        return discmess.DiscussionsMessage.from_dict(modified_template)
+    
+    def _invalid_indexes(self, message: discmess.DiscussionsMessage, data_reply: dict) -> discmess.DiscussionsMessage:
+        return
