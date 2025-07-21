@@ -62,12 +62,12 @@ class ReportHandler:
             data_report['statusReport'] = True
             json.dump(data_report, file, indent=2)
         
-        reply = discmess.DiscussionsMessage().add_paragraph()
-        reply.add_text_to_last(message['user'], strong=True).add_text_to_last(', отчеты о нежелательных сообщениях включены 👁️‍🗨️')
-        reply.add_paragraph('Теперь бот будет автоматически отправлять уведомления, если в сообщениях участников будут обнаружены подозрительные или запрещенные слова')
-        reply.add_paragraph('📚 Полный список команд: ').add_text_to_last('команды бота', link='https://discbot.fandom.com/ru/wiki/Команды_бота')
-        reply.add_text_to_last('. Не забудьте в начале упомянуть мое имя {} через запятую!'.format(self.bot.core.botname))
-        return reply
+        replacements = {
+            '$USERNOTIFICATION': {"mention_id": str(message['user_id']), "mention_text": message['user']}
+        }
+
+        modified_template = discmess.DiscussionsMessage.replace_in_message_from_dict(data_reply['REPORT_ENABLE'], replacements)
+        return discmess.DiscussionsMessage.from_dict(modified_template)
 
     def _handle_disable(self, message: discmess.DiscussionsMessage, data_reply: dict) -> discmess.DiscussionsMessage:
         with open(FILE_SETTINGS, 'r') as file:
@@ -77,9 +77,10 @@ class ReportHandler:
             data_report['statusReport'] = False
             json.dump(data_report, file, indent=2)
         
-        reply = discmess.DiscussionsMessage().add_paragraph()
-        reply.add_text_to_last(message['user'], strong=True).add_text_to_last(', уведомления о сообщениях с нежелательными словами отключены. Я больше не буду отправлять отчеты о потенциально нарушающих сообщениях. Вы можете снова включить их в любое время командой ')
-        reply.add_text_to_last('report enable', strong=True).add_text_to_last('.')
-        reply.add_paragraph('📚 Полный список команд: ').add_text_to_last('команды бота', link='https://discbot.fandom.com/ru/wiki/Команды_бота')
-        reply.add_text_to_last('. Не забудьте в начале упомянуть мое имя {} через запятую!'.format(self.bot.core.botname))
-        return reply
+        replacements = {
+            '$USERNOTIFICATION': {"mention_id": str(message['user_id']), "mention_text": message['user']},
+            '$BOTOWNER': {"text": 'Зубенко Михаил Петрович', "link": '{}/Стена_обсуждения:Зубенко_Михаил_Петрович'.format(self.bot.core.wikilink)}
+        }
+
+        modified_template = discmess.DiscussionsMessage.replace_in_message_from_dict(data_reply['REPORT_DISABLE'], replacements)
+        return discmess.DiscussionsMessage.from_dict(modified_template)

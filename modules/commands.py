@@ -49,14 +49,14 @@ class CommandHandler:
     
     def _handle_ping(self, message: discmess.DiscussionsMessage) -> discmess.DiscussionsMessage:
         with open('languages/{}/commands.json'.format(self.bot.core.wikilang), 'r') as file:
-            data_reply = json.load(file)['PING']
+            data_reply = json.load(file)
 
         replacements = {
             '$USERNOTIFICATION': {"mention_id": str(message['user_id']), "mention_text": message['user']},
             '$BOTOWNER': {"text": 'Зубенко Михаил Петрович', "link": '{}/Стена_обсуждения:Зубенко_Михаил_Петрович'.format(self.bot.core.wikilink)}
         }
 
-        modified_template = discmess.DiscussionsMessage.replace_in_message_from_dict(data_reply, replacements)
+        modified_template = discmess.DiscussionsMessage.replace_in_message_from_dict(data_reply['PING'], replacements)
         return discmess.DiscussionsMessage.from_dict(modified_template)
     
     def _handle_greeting(self, message: discmess.DiscussionsMessage) -> Optional[discmess.DiscussionsMessage]:
@@ -79,8 +79,14 @@ class CommandHandler:
         
         values = [x.strip() for x in elements.split(',')]
         random_item = random.choice(values)
+
+        with open('languages/{}/commands.json'.format(self.bot.core.wikilang), 'r') as file:
+            data_reply = json.load(file)
         
-        reply = discmess.DiscussionsMessage().add_paragraph()
-        reply.add_text_to_last(message['user'], strong=True).add_text_to_last(', ').add_text_to_last('мудрый бот поглядел в хрустальный шар и выбрал:', italic=True)
-        reply.add_paragraph(random_item, strong=True).add_text_to_last(' — да пребудет с тобой удача! ✨')
-        return reply
+        replacements = {
+            '$USERNOTIFICATION': {"mention_id": str(message['user_id']), "mention_text": message['user']},
+            '$CHOICE': {"text": random_item}
+        }
+
+        modified_template = discmess.DiscussionsMessage.replace_in_message_from_dict(data_reply['RANDOM'], replacements)
+        return discmess.DiscussionsMessage.from_dict(modified_template)
